@@ -3,7 +3,7 @@ id: payments-service-go
 name: payments-service-go
 team: Team Fintech
 description: Core payment processing microservice handling Stripe and PayPal webhooks.
-environment: Production  # Production, Staging, Experimental
+environment: Production  # Production, Staging
 language: Go
 tags:
   - go

@@ -1,0 +1,302 @@
+.main {
+    min-height: 100vh;
+    background: var(--bg-white);
+    padding-bottom: 3rem;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* Page Header */
+.pageHeader {
+    margin-bottom: 2rem;
+}
+
+.backButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: 0;
+    margin-bottom: 1rem;
+    transition: color var(--transition-fast);
+}
+
+.backButton:hover {
+    color: var(--green-primary);
+}
+
+.backButton svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.subtitle {
+    font-size: 0.938rem;
+    color: var(--text-secondary);
+    margin: 0.5rem 0 0 0;
+}
+
+/* Content */
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.card {
+    background: var(--bg-white);
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.loading,
+.error {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.error {
+    color: #ef4444;
+}
+
+/* Profile Section */
+.profileHeader {
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+}
+
+.avatar {
+    width: 5rem;
+    height: 5rem;
+    background: var(--gradient-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.profileInfo {
+    flex: 1;
+}
+
+.name {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem 0;
+}
+
+.email {
+    font-size: 0.938rem;
+    color: var(--text-secondary);
+    margin: 0 0 0.75rem 0;
+}
+
+.roleBadge {
+    margin-top: 0.5rem;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+.badgeAdmin {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border: 1px solid var(--green-primary);
+}
+
+.badgeDev {
+    background: rgba(59, 130, 246, 0.1);
+    color: #3b82f6;
+    border: 1px solid #3b82f6;
+}
+
+/* Card Title */
+.cardTitle {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 1.5rem 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.cardTitle svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    color: var(--green-primary);
+}
+
+/* Teams List */
+.teamsList {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.teamItem {
+    display: flex;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--bg-gray-50);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+    border: 2px solid transparent;
+}
+
+.teamItem:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+    border-color: rgba(16, 185, 129, 0.2);
+}
+
+.teamIcon {
+    width: 3rem;
+    height: 3rem;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1.5rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.teamInfo h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem 0;
+}
+
+.teamInfo p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 0.5rem 0;
+}
+
+.teamMeta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.813rem;
+    color: var(--text-tertiary);
+}
+
+.emptyState {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-secondary);
+    font-size: 0.938rem;
+}
+
+/* Permissions Grid */
+.permissionsGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem;
+}
+
+.permissionItem {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--bg-gray-50);
+    border-radius: var(--radius-md);
+    border: 1px solid #e5e7eb;
+}
+
+.permissionInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.permissionResource {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.permissionAction {
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+    text-transform: capitalize;
+}
+
+.permissionStatus {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.permissionStatus svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.allowed {
+    background: rgba(16, 185, 129, 0.1);
+    color: var(--green-primary);
+}
+
+.denied {
+    background: rgba(239, 68, 68, 0.1);
+    color: #ef4444;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .profileHeader {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .permissionsGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .title {
+        font-size: 1.5rem;
+    }
+}
