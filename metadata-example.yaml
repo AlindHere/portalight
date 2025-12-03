@@ -1,0 +1,15 @@
+# Example metadata file for service catalog
+id: payments-service-go
+name: payments-service-go
+team: Team Fintech
+description: Core payment processing microservice handling Stripe and PayPal webhooks.
+environment: Production  # Production, Staging, Experimental
+language: Go
+tags:
+  - go
+  - payments
+  - critical
+repository: https://github.com/company/payments-service
+owner: fintech-team
+grafana_url: https://grafana.company.com/d/payments
+confluence_url: https://confluence.company.com/payments
