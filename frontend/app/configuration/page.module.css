@@ -1,0 +1,599 @@
+.main {
+    min-height: 100vh;
+    background: var(--bg-white);
+    padding-bottom: 3rem;
+}
+
+.container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+/* Page Header */
+.pageHeader {
+    margin-bottom: 2rem;
+}
+
+.backButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: 0.5rem 0;
+    margin-bottom: 1.5rem;
+    transition: color var(--transition-fast);
+}
+
+.backButton:hover {
+    color: var(--green-primary);
+}
+
+.backButton svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.subtitle {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    padding: 4rem 2rem;
+    color: var(--text-secondary);
+    font-size: 1.125rem;
+}
+
+/* Tabs */
+.tabs {
+    display: flex;
+    gap: 0.5rem;
+    border-bottom: 2px solid #e5e7eb;
+    margin-bottom: 2rem;
+}
+
+.tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.5rem;
+    background: none;
+    border: none;
+    border-bottom: 3px solid transparent;
+    color: var(--text-secondary);
+    font-size: 0.938rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    position: relative;
+    top: 2px;
+}
+
+.tab svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.tab:hover {
+    color: var(--green-primary);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+}
+
+.tabActive {
+    color: var(--green-primary);
+    border-bottom-color: var(--green-primary);
+    font-weight: 600;
+}
+
+/* Tab Content */
+.tabContent {
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Section */
+.section {
+    background: var(--bg-white);
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    box-shadow: var(--shadow-md);
+}
+
+.sectionHeader {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.sectionHeader h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.sectionHeader p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0.5rem 0 0 0;
+}
+
+.addButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-md);
+}
+
+.addButton:hover {
+    box-shadow: var(--shadow-gradient), var(--shadow-lg);
+    transform: translateY(-1px);
+}
+
+.addButton svg {
+    width: 1.125rem;
+    height: 1.125rem;
+}
+
+/* Empty State */
+.emptyState {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--bg-gray-50);
+    border-radius: var(--radius-md);
+}
+
+.emptyState svg {
+    width: 3.5rem;
+    height: 3.5rem;
+    margin: 0 auto 1.5rem;
+    color: var(--text-tertiary);
+}
+
+.emptyState h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+}
+
+.emptyState p {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0;
+    line-height: 1.6;
+}
+
+.comingSoon {
+    display: inline-block;
+    margin-top: 1rem;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+}
+
+/* Credentials List */
+.credentialsList {
+    display: grid;
+    gap: 1rem;
+}
+
+.credentialCard {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem;
+    background: var(--bg-white);
+    border: 2px solid #e5e7eb;
+    border-radius: var(--radius-md);
+    transition: all var(--transition-fast);
+}
+
+.credentialCard:hover {
+    border-color: rgba(16, 185, 129, 0.3);
+    box-shadow: var(--shadow-md);
+}
+
+.credentialIcon {
+    font-size: 2rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    border-radius: var(--radius-md);
+    flex-shrink: 0;
+}
+
+.credentialInfo {
+    flex: 1;
+}
+
+.credentialInfo h3 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0 0 0.25rem 0;
+}
+
+.credentialInfo p {
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.credentialActions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.editButton,
+.deleteButton {
+    padding: 0.5rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-sm);
+    font-size: 0.813rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.editButton {
+    background: white;
+    color: var(--green-primary);
+    border-color: var(--green-primary);
+}
+
+.editButton:hover {
+    background: var(--green-primary);
+    color: white;
+}
+
+.deleteButton {
+    background: white;
+    color: #ef4444;
+    border-color: #ef4444;
+}
+
+.deleteButton:hover {
+    background: #ef4444;
+    color: white;
+}
+
+/* Users Table */
+.usersTable {
+    overflow-x: auto;
+}
+
+.usersTable table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.usersTable thead {
+    background: var(--bg-gray-50);
+}
+
+.usersTable th {
+    text-align: left;
+    padding: 0.875rem 1rem;
+    font-size: 0.813rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.usersTable td {
+    padding: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.usersTable tbody tr:hover {
+    background: var(--bg-gray-50);
+}
+
+.userCell {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.userAvatar {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 50%;
+    background: var(--gradient-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 0.875rem;
+    flex-shrink: 0;
+}
+
+.roleSelect {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    cursor: pointer;
+    background: white;
+    transition: all var(--transition-fast);
+}
+
+.roleSelect:hover,
+.roleSelect:focus {
+    border-color: var(--green-primary);
+    outline: none;
+}
+
+.teamBadges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.teamBadge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .container {
+        padding: 1.5rem 1rem;
+    }
+
+    .section {
+        padding: 1.5rem;
+    }
+
+    .tabs {
+        overflow-x: auto;
+    }
+
+    .tab {
+        white-space: nowrap;
+    }
+
+    .sectionHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .credentialCard {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .credentialActions {
+        width: 100%;
+        justify-content: stretch;
+    }
+
+    .credentialActions button {
+        flex: 1;
+    }
+
+    .usersTable {
+        font-size: 0.813rem;
+    }
+}
+
+/* Modal */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modalContent {
+    background: white;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    max-width: 500px;
+    width: 90%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modalHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modalHeader h3 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.closeButton {
+    width: 2rem;
+    height: 2rem;
+    border-radius: 50%;
+    border: none;
+    background: var(--bg-gray-100);
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    transition: all var(--transition-fast);
+}
+
+.closeButton:hover {
+    background: #e5e7eb;
+    color: var(--text-primary);
+}
+
+.modalBody {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.teamsList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.teamCheckbox {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.teamCheckbox:hover {
+    border-color: var(--green-primary);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.02) 0%, rgba(6, 182, 212, 0.02) 100%);
+}
+
+.teamCheckbox input[type="checkbox"] {
+    width: 1.125rem;
+    height: 1.125rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.teamCheckbox input[type="checkbox"]:checked {
+    accent-color: var(--green-primary);
+}
+
+.teamCheckbox span:first-of-type {
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+.teamDescription {
+    display: block;
+    font-size: 0.813rem;
+    color: var(--text-secondary);
+    margin-top: 0.25rem;
+}
+
+.modalFooter {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    padding: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.cancelButton,
+.saveButton {
+    padding: 0.75rem 1.5rem;
+    border-radius: var(--radius-md);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    border: none;
+}
+
+.cancelButton {
+    background: white;
+    color: var(--text-secondary);
+    border: 1px solid #e5e7eb;
+}
+
+.cancelButton:hover {
+    background: var(--bg-gray-50);
+    border-color: #d1d5db;
+}
+
+.saveButton {
+    background: var(--gradient-primary);
+    color: white;
+    box-shadow: var(--shadow-md);
+}
+
+.saveButton:hover {
+    box-shadow: var(--shadow-gradient), var(--shadow-lg);
+    transform: translateY(-1px);
+}

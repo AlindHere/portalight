@@ -57,7 +57,7 @@ export function calculateStats(services: Service[]): Stats {
 
 // User Management API
 export async function fetchCurrentUser(): Promise<import('./types').CurrentUserResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/me`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/users/current`);
     if (!response.ok) throw new Error('Failed to fetch current user');
     return response.json();
 }
@@ -102,14 +102,21 @@ export async function fetchTeams(): Promise<import('./types').Team[]> {
     return response.json();
 }
 
-export async function createTeam(team: Partial<import('./types').Team>): Promise<import('./types').Team> {
+export async function createTeam(name: string, description: string): Promise<import('./types').Team> {
     const response = await fetch(`${API_BASE_URL}/api/v1/teams`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(team),
+        body: JSON.stringify({ name, description }),
     });
     if (!response.ok) throw new Error('Failed to create team');
     return response.json();
+}
+
+export async function deleteTeam(teamId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/teams?id=${teamId}`, {
+        method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete team');
 }
 
 export async function updateTeamMembers(teamId: string, memberIds: string[]): Promise<import('./types').Team> {
@@ -119,5 +126,58 @@ export async function updateTeamMembers(teamId: string, memberIds: string[]): Pr
         body: JSON.stringify({ team_id: teamId, member_ids: memberIds }),
     });
     if (!response.ok) throw new Error('Failed to update team members');
+    return response.json();
+}
+
+// Project Management API
+export async function fetchProjects(): Promise<import('./types').Project[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects`);
+    if (!response.ok) throw new Error('Failed to fetch projects');
+    return response.json();
+}
+
+export async function fetchProjectById(id: string): Promise<import('./types').ProjectWithServices> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`);
+    if (!response.ok) throw new Error('Failed to fetch project');
+    return response.json();
+}
+export async function updateProjectAccess(projectId: string, teamIds: string[], userIds: string[]): Promise<import('./types').Project> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/access`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project_id: projectId, team_ids: teamIds, user_ids: userIds }),
+    });
+    if (!response.ok) throw new Error('Failed to update project access');
+    return response.json();
+}
+export async function updateProject(id: string, data: Partial<import('./types').Project>): Promise<import('./types').Project> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error('Failed to update project');
+    return response.json();
+}
+
+// Audit Logs API
+export async function fetchAuditLogs(params?: import('./types').AuditLogQueryParams): Promise<import('./types').AuditLog[]> {
+    const queryParams = new URLSearchParams();
+    if (params?.user_email) queryParams.append('user_email', params.user_email);
+    if (params?.action) queryParams.append('action', params.action);
+
+    const url = `${API_BASE_URL}/api/v1/audit-logs${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Failed to fetch audit logs');
+    return response.json();
+}
+
+export async function createAuditLog(log: Partial<import('./types').AuditLog>): Promise<import('./types').AuditLog> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/audit-logs`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(log),
+    });
+    if (!response.ok) throw new Error('Failed to create audit log');
     return response.json();
 }

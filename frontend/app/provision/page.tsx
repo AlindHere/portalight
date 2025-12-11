@@ -25,6 +25,7 @@ export default function ProvisionPage() {
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState<string | null>(null);
     const [showCreateCredential, setShowCreateCredential] = useState(false);
+    const [selectedAccount, setSelectedAccount] = useState<string>('');
 
     const [form, setForm] = useState<ProvisionForm>({
         secretId: '',
@@ -34,12 +35,19 @@ export default function ProvisionPage() {
         parameters: {},
     });
 
-    // Mock AWS accounts
-    const availableAccounts = [
-        { id: 'prod', name: 'Production (123456789012)' },
-        { id: 'staging', name: 'Staging (234567890123)' },
-        { id: 'dev', name: 'Development (345678901234)' },
-    ];
+    // Get unique AWS accounts from secrets
+    const awsAccounts = Array.from(new Set(secrets.map((s: Secret) => s.aws_account || 'Default Account')));
+
+    // Filter credentials based on selected account
+    const availableCredentials = selectedAccount
+        ? secrets.filter((s: Secret) => (s.aws_account || 'Default Account') === selectedAccount)
+        : [];
+
+    // Handle account selection change - reset credential when changing account
+    const handleAccountChange = (account: string) => {
+        setSelectedAccount(account);
+        setForm(prev => ({ ...prev, secretId: '', accounts: [account] }));
+    };
 
     useEffect(() => {
         loadSecrets();
@@ -257,63 +265,57 @@ export default function ProvisionPage() {
                                     <div className={styles.loading}>Loading credentials...</div>
                                 ) : (
                                     <form onSubmit={handleSubmit}>
-                                        {/* Credential Selection */}
+
+
+                                        {/* Step 1: Account Selection */}
                                         <div className={styles.formGroup}>
-                                            <label className={styles.label}>AWS Credentials</label>
-                                            <div className={styles.credentialSelector}>
+                                            <label className={styles.label}>
+                                                1. Select AWS Account
+                                                <span className={styles.required}>*</span>
+                                            </label>
+                                            <select
+                                                className={styles.select}
+                                                value={selectedAccount}
+                                                onChange={(e) => handleAccountChange(e.target.value)}
+                                                required
+                                            >
+                                                <option value="">Choose an AWS account...</option>
+                                                {awsAccounts.map((account) => (
+                                                    <option key={account} value={account}>
+                                                        {account}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <p className={styles.hint}>
+                                                Select the target AWS account for provisioning
+                                            </p>
+                                        </div>
+
+                                        {/* Step 2: Credential Selection (appears after account selected) */}
+                                        {selectedAccount && (
+                                            <div className={styles.formGroup}>
+                                                <label className={styles.label}>
+                                                    2. Select Credentials for {selectedAccount}
+                                                    <span className={styles.required}>*</span>
+                                                </label>
                                                 <select
                                                     className={styles.select}
                                                     value={form.secretId}
                                                     onChange={(e) => setForm({ ...form, secretId: e.target.value })}
                                                     required
                                                 >
-                                                    {secrets.map((secret) => (
+                                                    <option value="">Choose credentials...</option>
+                                                    {availableCredentials.map((secret) => (
                                                         <option key={secret.id} value={secret.id}>
                                                             {secret.name} ({secret.region})
                                                         </option>
                                                     ))}
                                                 </select>
-                                                <button
-                                                    type="button"
-                                                    className={styles.createCredButton}
-                                                    onClick={() => setShowCreateCredential(true)}
-                                                >
-                                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                                                    </svg>
-                                                    New
-                                                </button>
-                                            </div>
-                                            {selectedSecret && (
                                                 <p className={styles.hint}>
-                                                    Region: {selectedSecret.region}
+                                                    {availableCredentials.length} credential(s) available for {selectedAccount}
                                                 </p>
-                                            )}
-                                        </div>
-
-                                        {/* Account Selection */}
-                                        <div className={styles.formGroup}>
-                                            <label className={styles.label}>
-                                                Target Accounts
-                                                <span className={styles.required}>*</span>
-                                            </label>
-                                            <div className={styles.accountList}>
-                                                {availableAccounts.map((account) => (
-                                                    <label key={account.id} className={styles.accountItem}>
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={form.accounts.includes(account.id)}
-                                                            onChange={() => handleAccountToggle(account.id)}
-                                                            className={styles.checkbox}
-                                                        />
-                                                        <span className={styles.accountName}>{account.name}</span>
-                                                    </label>
-                                                ))}
                                             </div>
-                                            <p className={styles.hint}>
-                                                Select one or more AWS accounts to provision resources
-                                            </p>
-                                        </div>
+                                        )}
 
                                         {/* Resource Type */}
                                         <div className={styles.formGroup}>
@@ -328,18 +330,37 @@ export default function ProvisionPage() {
                                                     >
                                                         <div className={styles.resourceIcon}>
                                                             {type === 'S3' && (
-                                                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                                                <svg viewBox="0 0 80 80" fill="none">
+                                                                    <rect width="80" height="80" fill="#569A31" />
+                                                                    <path d="M40 15L60 25V55L40 65L20 55V25L40 15Z" fill="#527F34" />
+                                                                    <path d="M40 15V35L20 25V45L40 35V55L60 45V25L40 35V15Z" fill="#7AAA5A" />
+                                                                    <path d="M40 35L60 45V65L40 55V35Z" fill="#3E6B29" />
+                                                                    <path d="M40 35L20 45V65L40 55V35Z" fill="#7AAA5A" />
                                                                 </svg>
                                                             )}
                                                             {type === 'SQS' && (
-                                                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
+                                                                <svg viewBox="0 0 80 80" fill="none">
+                                                                    <rect width="80" height="80" fill="#FF9900" />
+                                                                    <rect x="15" y="20" width="50" height="10" rx="2" fill="#D26E00" />
+                                                                    <rect x="15" y="35" width="50" height="10" rx="2" fill="#D26E00" />
+                                                                    <rect x="15" y="50" width="50" height="10" rx="2" fill="#D26E00" />
+                                                                    <circle cx="22" cy="25" r="2" fill="#FFB951" />
+                                                                    <circle cx="22" cy="40" r="2" fill="#FFB951" />
+                                                                    <circle cx="22" cy="55" r="2" fill="#FFB951" />
+                                                                    <rect x="28" y="23" width="30" height="4" fill="#FFB951" />
+                                                                    <rect x="28" y="38" width="30" height="4" fill="#FFB951" />
+                                                                    <rect x="28" y="53" width="30" height="4" fill="#FFB951" />
                                                                 </svg>
                                                             )}
                                                             {type === 'SNS' && (
-                                                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                                                                <svg viewBox="0 0 80 80" fill="none">
+                                                                    <rect width="80" height="80" fill="#E7157B" />
+                                                                    <circle cx="40" cy="40" r="25" fill="#C2105C" />
+                                                                    <path d="M40 22C30 22 22 30 22 40C22 45 24 50 27 53L24 60L32 57C35 59 37.5 60 40 60C50 60 58 52 58 40C58 30 50 22 40 22Z" fill="white" />
+                                                                    <circle cx="32" cy="40" r="2.5" fill="#E7157B" />
+                                                                    <circle cx="40" cy="40" r="2.5" fill="#E7157B" />
+                                                                    <circle cx="48" cy="40" r="2.5" fill="#E7157B" />
+                                                                    <path d="M27 53L24 60L32 57C30 55 28 54 27 53Z" fill="#FFB1D4" />
                                                                 </svg>
                                                             )}
                                                         </div>
@@ -348,7 +369,7 @@ export default function ProvisionPage() {
                                                             <div className={styles.resourceSubtitle}>
                                                                 {type === 'S3' && 'Object Storage'}
                                                                 {type === 'SQS' && 'Message Queue'}
-                                                                {type === 'SNS' && 'Notification Service'}
+                                                                {type === 'SNS' && 'Pub/Sub Messaging'}
                                                             </div>
                                                         </div>
                                                     </button>

@@ -21,10 +21,11 @@ type Service struct {
 
 // Secret represents cloud provider credentials
 type Secret struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Provider string `json:"provider"` // AWS, Azure, GCP
-	Region   string `json:"region"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	Provider   string `json:"provider"` // AWS, Azure, GCP
+	Region     string `json:"region"`
+	AWSAccount string `json:"aws_account,omitempty"`
 }
 
 // ProvisionRequest represents a resource provisioning request

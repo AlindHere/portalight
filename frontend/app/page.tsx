@@ -4,183 +4,327 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import StatsCard from '@/components/dashboard/StatsCard';
-import ServiceCard from '@/components/services/ServiceCard';
-import RegisterModal, { RegisterData } from '@/components/modals/RegisterModal';
-import { fetchServices, calculateStats } from '@/lib/api';
-import { Service } from '@/lib/types';
+import RegisterModal from '@/components/modals/RegisterModal';
+import ProjectAccessModal from '@/components/ProjectAccessModal';
+import { fetchProjects, fetchTeams, fetchServices, fetchUsers, fetchCurrentUser, updateProjectAccess } from '@/lib/api';
+import { Project, Team, Service, User } from '@/lib/types';
 import styles from './page.module.css';
 
 export default function Home() {
   const router = useRouter();
+  const [projects, setProjects] = useState<Project[]>([]);
   const [services, setServices] = useState<Service[]>([]);
-  const [filteredServices, setFilteredServices] = useState<Service[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [managingAccessFor, setManagingAccessFor] = useState<string | null>(null);
 
   useEffect(() => {
-    loadServices();
+    loadData();
   }, []);
 
-  useEffect(() => {
-    if (searchQuery) {
-      const filtered = services.filter(service =>
-        service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        service.team.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        service.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-      );
-      setFilteredServices(filtered);
-    } else {
-      setFilteredServices(services);
-    }
-  }, [searchQuery, services]);
-
-  const loadServices = async () => {
+  const loadData = async () => {
     try {
-      const data = await fetchServices();
-      setServices(data);
-      setFilteredServices(data);
+      const [projectsData, teamsData, servicesData, usersData, currentUserData] = await Promise.all([
+        fetchProjects(),
+        fetchTeams(),
+        fetchServices(),
+        fetchUsers(),
+        fetchCurrentUser(),
+      ]);
+      setProjects(projectsData);
+      setTeams(teamsData);
+      setServices(servicesData);
+      setUsers(usersData);
+      setCurrentUser(currentUserData.user);
     } catch (error) {
-      console.error('Failed to load services:', error);
+      console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleRegister = async (data: RegisterData) => {
-    try {
-      // TODO: Call backend API to register repository
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(data),
-      });
+  const filteredProjects = searchQuery
+    ? projects.filter(project =>
+      project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      project.description.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : projects;
 
-      if (!response.ok) {
-        throw new Error('Failed to register repository');
-      }
+  const filteredServices = searchQuery
+    ? services.filter(service =>
+      service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      service.team.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    : [];
 
-      // Reload services after successful registration
-      await loadServices();
-    } catch (error) {
-      throw error; // Re-throw to let modal handle error display
-    }
+  const hasSearchResults = searchQuery && (filteredProjects.length > 0 || filteredServices.length > 0);
+  const hasNoResults = searchQuery && filteredProjects.length === 0 && filteredServices.length === 0;
+
+  const getTeamName = (teamId?: string) => {
+    if (!teamId) return 'No team';
+    const team = teams.find(t => t.id === teamId);
+    return team?.name || 'Unknown Team';
   };
 
-  const stats = calculateStats(services);
+  const stats = {
+    totalServices: projects.length,
+    productionServices: projects.filter(p => p.owner_team_id).length,
+    avgUptime: '99.9%',
+    totalOwners: teams.length,
+  };
 
   return (
     <>
       <Header />
       <main className={styles.main}>
         <div className={styles.container}>
-          {/* Search and Register */}
-          <div className={styles.searchSection}>
-            <div className={styles.searchBar}>
-              <svg className={styles.searchIcon} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search services, owners, tags..."
-                className={styles.searchInput}
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            <div className={styles.actionButtons}>
-              <button
-                className={styles.provisionButton}
-                onClick={() => router.push('/provision')}
-              >
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Provision Resource
-              </button>
-              <button
-                className={styles.registerButton}
-                onClick={() => setShowRegisterModal(true)}
-              >
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                </svg>
-                Register Component
-              </button>
+          {/* Hero Section */}
+          <div className={styles.hero}>
+            <div className={styles.heroContent}>
+              <h1 className={styles.title}>Internal Developer Portal</h1>
+              <p className={styles.subtitle}>
+                Centralize your services, documentation, and cloud provisioning
+              </p>
+              <div className={styles.actions}>
+                <button className={styles.primaryButton} onClick={() => setShowRegisterModal(true)}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Register New Project
+                </button>
+                <button className={styles.secondaryButton} onClick={() => router.push('/provision')}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  </svg>
+                  Provision Resources
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Stats Cards */}
+          {/* Stats Grid */}
           <div className={styles.statsGrid}>
             <StatsCard
-              title="Total Services"
-              value={stats.totalServices}
-              icon={
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5a2 2 0 00-2-2H9a2 2 0 00-2 2v5a2 2 0 01-2 2z" />
-                </svg>
-              }
+              title="Total Projects"
+              value={stats.totalServices.toString()}
+              icon="📦"
             />
             <StatsCard
-              title="Production"
-              value={stats.productionServices}
-              icon={
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
-                </svg>
-              }
+              title="Active Projects"
+              value={stats.productionServices.toString()}
+              icon="✅"
             />
             <StatsCard
               title="Avg Uptime"
               value={stats.avgUptime}
-              icon={
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-              }
+              icon="⏱️"
             />
             <StatsCard
-              title="Owners"
-              value={stats.totalOwners}
-              icon={
-                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              }
+              title="Teams"
+              value={stats.totalOwners.toString()}
+              icon="👥"
             />
           </div>
 
-          {/* Service Catalog */}
-          <div className={styles.catalogSection}>
-            <h2 className={styles.catalogTitle}>Service Catalog</h2>
-
-            {loading ? (
-              <div className={styles.loading}>Loading services...</div>
-            ) : (
-              <div className={styles.servicesGrid}>
-                {filteredServices.map((service) => (
-                  <ServiceCard key={service.id} service={service} />
-                ))}
-              </div>
-            )}
-
-            {!loading && filteredServices.length === 0 && (
-              <div className={styles.empty}>
-                <p>No services found matching your search.</p>
-              </div>
-            )}
+          {/* Search Bar */}
+          <div className={styles.searchSection}>
+            <div className={styles.searchBar}>
+              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+              <input
+                type="text"
+                placeholder="Search projects and services..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
+
+          {/* Projects Section */}
+          {!searchQuery && (
+            <div className={styles.projectsSection}>
+              <div className={styles.sectionHeader}>
+                <h2>Projects ({projects.length})</h2>
+                <p>Organize your services by project for better management</p>
+              </div>
+
+              {loading ? (
+                <div className={styles.loading}>Loading projects...</div>
+              ) : (
+                <div className={styles.projectsGrid}>
+                  {projects.map((project) => (
+                    <div
+                      key={project.id}
+                      className={styles.projectCard}
+                    >
+                      <div
+                        className={styles.projectCardContent}
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                      >
+                        <div className={styles.projectHeader}>
+                          <div className={styles.projectIcon}>
+                            {project.avatar ? (
+                              <img
+                                src={project.avatar}
+                                alt={project.name}
+                                className={styles.projectAvatar}
+                              />
+                            ) : (
+                              project.name.substring(0, 1)
+                            )}
+                          </div>
+                          <div className={styles.projectInfo}>
+                            <h3>{project.name}</h3>
+                            <p>{project.description}</p>
+                          </div>
+                        </div>
+                        <div className={styles.projectFooter}>
+                          <span className={styles.teamBadge}>
+                            📊 {getTeamName(project.owner_team_id)}
+                          </span>
+                          {project.confluence_url && (
+                            <span className={styles.hasDoc}>📚 Docs</span>
+                          )}
+                        </div>
+                      </div>
+                      {(currentUser?.role === 'superadmin' || currentUser?.role === 'lead') && (
+                        <button
+                          className={styles.manageAccessButton}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setManagingAccessFor(project.id);
+                          }}
+                          title="Manage Access"
+                        >
+                          <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                          </svg>
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Search Results */}
+          {searchQuery && (
+            <div className={styles.searchResults}>
+              {/* Projects Results */}
+              {filteredProjects.length > 0 && (
+                <div className={styles.resultsSection}>
+                  <div className={styles.sectionHeader}>
+                    <h2>Projects ({filteredProjects.length})</h2>
+                  </div>
+                  <div className={styles.projectsGrid}>
+                    {filteredProjects.map((project) => (
+                      <div
+                        key={project.id}
+                        className={styles.projectCard}
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                      >
+                        <div className={styles.projectHeader}>
+                          <div className={styles.projectIcon}>
+                            {project.avatar ? (
+                              <img
+                                src={project.avatar}
+                                alt={project.name}
+                                className={styles.projectAvatar}
+                              />
+                            ) : (
+                              project.name.substring(0, 1)
+                            )}
+                          </div>
+                          <div className={styles.projectInfo}>
+                            <h3>{project.name}</h3>
+                            <p>{project.description}</p>
+                          </div>
+                        </div>
+                        <div className={styles.projectFooter}>
+                          <span className={styles.teamBadge}>
+                            📊 {getTeamName(project.owner_team_id)}
+                          </span>
+                          {project.confluence_url && (
+                            <span className={styles.hasDoc}>📚 Docs</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Services Results */}
+              {filteredServices.length > 0 && (
+                <div className={styles.resultsSection}>
+                  <div className={styles.sectionHeader}>
+                    <h2>Services ({filteredServices.length})</h2>
+                  </div>
+                  <div className={styles.servicesGrid}>
+                    {filteredServices.map((service) => (
+                      <div
+                        key={service.id}
+                        className={styles.serviceCard}
+                        onClick={() => router.push(`/services/${service.id}`)}
+                      >
+                        <div className={styles.serviceHeader}>
+                          <h3>{service.name}</h3>
+                          <span className={`${styles.envBadge} ${styles[service.environment.toLowerCase()]}`}>
+                            {service.environment}
+                          </span>
+                        </div>
+                        <p className={styles.serviceDescription}>{service.description}</p>
+                        <div className={styles.serviceMeta}>
+                          <span className={styles.language}>{service.language}</span>
+                          <span className={styles.team}>{service.team}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* No Results */}
+              {hasNoResults && (
+                <div className={styles.emptyState}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <h3>No Results Found</h3>
+                  <p>Try adjusting your search or register a new project</p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </main>
 
-      {/* Register Modal */}
-      <RegisterModal
-        isOpen={showRegisterModal}
-        onClose={() => setShowRegisterModal(false)}
-        onSubmit={handleRegister}
-      />
+      {showRegisterModal && (
+        <RegisterModal
+          onClose={() => setShowRegisterModal(false)}
+          onRegister={loadData}
+        />
+      )}
+
+      {managingAccessFor && (
+        <ProjectAccessModal
+          project={projects.find(p => p.id === managingAccessFor)!}
+          allTeams={teams}
+          allUsers={users}
+          onClose={() => setManagingAccessFor(null)}
+          onSave={async (teamIds, userIds) => {
+            await updateProjectAccess(managingAccessFor, teamIds, userIds);
+            loadData();
+          }}
+        />
+      )}
     </>
   );
 }

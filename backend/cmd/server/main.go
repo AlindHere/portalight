@@ -24,9 +24,14 @@ func main() {
 	serviceHandler := handlers.NewServiceHandler()
 	secretHandler := handlers.NewSecretHandler()
 	provisionHandler := handlers.NewProvisionHandler()
+	authHandler := handlers.NewAuthHandler(cfg)
 
 	// Setup routes
 	mux := http.NewServeMux()
+
+	// Auth endpoints
+	mux.HandleFunc("/auth/github/login", authHandler.HandleGithubLogin)
+	mux.HandleFunc("/auth/github/callback", authHandler.HandleGithubCallback)
 
 	// Service catalog endpoints
 	mux.HandleFunc("/api/v1/services", func(w http.ResponseWriter, r *http.Request) {
@@ -49,14 +54,12 @@ func main() {
 	// Repository management endpoints
 	mux.HandleFunc("/api/v1/register", handlers.RegisterRepository)
 
-	// User management endpoints
-	mux.HandleFunc("/api/v1/users/me", handlers.GetCurrentUser)
-	mux.HandleFunc("/api/v1/users", func(w http.ResponseWriter, r *http.Request) {
+	// User routes
+	mux.HandleFunc("/api/v1/users/current", handlers.GetCurrentUser)
+	mux.HandleFunc("/api/v1/users", handlers.GetUsers)
+	mux.HandleFunc("/api/v1/users/create", handlers.CreateUser)
+	mux.HandleFunc("/api/v1/users/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
-		case http.MethodGet:
-			handlers.GetUsers(w, r)
-		case http.MethodPost:
-			handlers.CreateUser(w, r)
 		case http.MethodPut, http.MethodPatch:
 			handlers.UpdateUser(w, r)
 		case http.MethodDelete:
@@ -73,11 +76,50 @@ func main() {
 			handlers.GetTeams(w, r)
 		case http.MethodPost:
 			handlers.CreateTeam(w, r)
+		case http.MethodDelete:
+			handlers.DeleteTeam(w, r)
 		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
 	mux.HandleFunc("/api/v1/teams/members", handlers.UpdateTeamMembers)
+
+	// Project management endpoints
+	mux.HandleFunc("/api/v1/projects", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.GetProjects(w, r)
+		case http.MethodPost:
+			handlers.CreateProject(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/projects/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.GetProjectByID(w, r)
+		case http.MethodPut, http.MethodPatch:
+			handlers.UpdateProject(w, r)
+		case http.MethodDelete:
+			handlers.DeleteProject(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/projects/access", handlers.UpdateProjectAccess)
+
+	// Audit log endpoints
+	mux.HandleFunc("/api/v1/audit-logs", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			handlers.GetAuditLogs(w, r)
+		case http.MethodPost:
+			handlers.CreateAuditLog(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,403 @@
+.main {
+    min-height: 100vh;
+    background: var(--bg-white);
+    padding-bottom: 3rem;
+}
+
+.container {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
+
+.backButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.875rem;
+    padding: 0;
+    margin-bottom: 2rem;
+    transition: color var(--transition-fast);
+}
+
+.backButton:hover {
+    color: var(--green-primary);
+}
+
+.backButton svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+/* Project Header */
+.projectHeader {
+    display: flex;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    padding: 2rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.05) 0%, rgba(6, 182, 212, 0.05) 100%);
+    border: 1px solid rgba(16, 185, 129, 0.2);
+    border-radius: var(--radius-lg);
+}
+
+.projectIcon {
+    width: 5rem;
+    height: 5rem;
+    background: var(--gradient-primary);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 2rem;
+    font-weight: 700;
+    box-shadow: var(--shadow-gradient);
+    flex-shrink: 0;
+}
+
+.projectAvatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: inherit;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+.projectDetails {
+    flex: 1;
+}
+
+.projectName {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 0.5rem 0;
+    background: var(--gradient-primary);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.projectDescription {
+    font-size: 1rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem 0;
+    line-height: 1.6;
+}
+
+.teamBadge {
+    display: inline-flex;
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border: 1px solid var(--green-primary);
+    border-radius: var(--radius-sm);
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Confluence Section */
+.confluenceSection {
+    margin-bottom: 3rem;
+}
+
+.confluenceDisplay {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    width: 100%;
+}
+
+.confluenceButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.938rem;
+    text-decoration: none;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: 0 4px 6px rgba(59, 130, 246, 0.2);
+}
+
+.confluenceButton:hover {
+    box-shadow: 0 6px 12px rgba(59, 130, 246, 0.3);
+    transform: translateY(-2px);
+}
+
+.confluenceButton svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.editButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border: 1px solid var(--green-primary);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.editButton:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%);
+    transform: translateY(-1px);
+}
+
+.editButton svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.manageAccessButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border: 1px solid var(--green-primary);
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.manageAccessButton:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(6, 182, 212, 0.2) 100%);
+    transform: translateY(-1px);
+}
+
+.manageAccessButton svg {
+    width: 1rem;
+    height: 1rem;
+}
+
+.adminActions {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.addConfluenceButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.5rem;
+    background: var(--gradient-primary);
+    color: white;
+    border: none;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.938rem;
+    cursor: pointer;
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow-md);
+}
+
+.addConfluenceButton:hover {
+    box-shadow: var(--shadow-gradient), var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.addConfluenceButton svg {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+/* Services Section */
+.servicesSection {
+    margin-top: 3rem;
+}
+
+.sectionHeader {
+    margin-bottom: 1.5rem;
+}
+
+.sectionHeader h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.servicesGrid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 1.5rem;
+}
+
+.serviceCard {
+    background: var(--bg-white);
+    border: 1px solid #e5e7eb;
+    border-radius: var(--radius-lg);
+    padding: 1.5rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    box-shadow: var(--shadow-md);
+}
+
+.serviceCard:hover {
+    border-color: rgba(16, 185, 129, 0.3);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+}
+
+.serviceHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+    gap: 1rem;
+}
+
+.serviceHeader h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin: 0;
+    flex: 1;
+}
+
+.envBadge {
+    padding: 0.25rem 0.625rem;
+    border-radius: var(--radius-sm);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    white-space: nowrap;
+}
+
+.envBadge.production {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+    color: var(--green-primary);
+    border: 1px solid var(--green-primary);
+}
+
+.envBadge.staging {
+    background: rgba(245, 158, 11, 0.1);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
+}
+
+.envBadge.experimental {
+    background: rgba(139, 92, 246, 0.1);
+    color: #8b5cf6;
+    border: 1px solid #8b5cf6;
+}
+
+.serviceDescription {
+    font-size: 0.875rem;
+    color: var(--text-secondary);
+    margin: 0 0 1rem 0;
+    line-height: 1.5;
+}
+
+.serviceMeta {
+    display: flex;
+    gap: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+    font-size: 0.813rem;
+    color: var(--text-tertiary);
+}
+
+.language,
+.team {
+    display: flex;
+    align-items: center;
+}
+
+.language::before {
+    content: '💻 ';
+    margin-right: 0.25rem;
+}
+
+.team::before {
+    content: '👥 ';
+    margin-right: 0.25rem;
+}
+
+.emptyServices {
+    text-align: center;
+    padding: 4rem 2rem;
+    background: var(--bg-gray-50);
+    border-radius: var(--radius-lg);
+    color: var(--text-tertiary);
+}
+
+.emptyServices svg {
+    width: 3rem;
+    height: 3rem;
+    margin: 0 auto 1rem;
+}
+
+.emptyServices p {
+    margin: 0;
+    font-size: 0.938rem;
+}
+
+.loading,
+.error {
+    text-align: center;
+    padding: 3rem;
+    color: var(--text-secondary);
+}
+
+.error {
+    color: #ef4444;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .servicesGrid {
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .projectHeader {
+        flex-direction: column;
+        padding: 1.5rem;
+    }
+
+    .projectName {
+        font-size: 1.5rem;
+    }
+
+    .confluenceDisplay,
+    .confluenceEdit {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .servicesGrid {
+        grid-template-columns: 1fr;
+    }
+
+    .editActions {
+        width: 100%;
+    }
+
+    .cancelButton,
+    .saveButton {
+        flex: 1;
+    }
+}

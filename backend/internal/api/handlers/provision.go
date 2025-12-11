@@ -34,6 +34,29 @@ func (h *ProvisionHandler) ProvisionResource(w http.ResponseWriter, r *http.Requ
 		"message":       "Resource provisioning initiated",
 	}
 
+	// Create audit log entry
+	detailsJSON, _ := json.Marshal(map[string]interface{}{
+		"resource_type": req.ResourceType,
+		"secret_id":     req.SecretID,
+		"parameters":    req.Parameters,
+	})
+
+	resourceName := ""
+	if name, ok := req.Parameters["name"].(string); ok {
+		resourceName = name
+	}
+
+	auditLog := models.AuditLog{
+		UserEmail:    "john.doe@company.com", // TODO: Get from auth context
+		UserName:     "John Doe",
+		Action:       "provision_resource",
+		ResourceType: req.ResourceType,
+		ResourceName: resourceName,
+		Details:      string(detailsJSON),
+		Status:       "success",
+	}
+	CreateAuditLogEntry(auditLog)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
 	json.NewEncoder(w).Encode(response)

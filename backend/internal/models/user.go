@@ -6,19 +6,22 @@ import "time"
 type Role string
 
 const (
-	RoleAdmin Role = "admin"
+	RoleAdmin Role = "superadmin"
+	RoleLead  Role = "lead"
 	RoleDev   Role = "dev"
 )
 
 // User represents a platform user
 type User struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Email     string    `json:"email"`
-	Role      Role      `json:"role"`
-	TeamIDs   []string  `json:"team_ids"`
-	Avatar    string    `json:"avatar,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Email          string    `json:"email"`
+	Role           Role      `json:"role"`
+	TeamIDs        []string  `json:"team_ids"`
+	Avatar         string    `json:"avatar,omitempty"`
+	GithubID       int64     `json:"github_id,omitempty"`
+	GithubUsername string    `json:"github_username,omitempty"`
+	CreatedAt      time.Time `json:"created_at"`
 }
 
 // Team represents a group of users that own services

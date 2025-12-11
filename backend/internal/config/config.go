@@ -13,6 +13,10 @@ type Config struct {
 	MetadataRepoBranch string
 	GithubToken        string
 	CORSAllowedOrigins []string
+	GithubClientID     string
+	GithubClientSecret string
+	GithubAllowedOrg   string
+	JWTSecret          string
 }
 
 func Load() *Config {
@@ -27,6 +31,10 @@ func Load() *Config {
 		MetadataRepoBranch: getEnv("METADATA_REPO_BRANCH", "main"),
 		GithubToken:        getEnv("GITHUB_TOKEN", ""),
 		CORSAllowedOrigins: []string{getEnv("CORS_ORIGIN", "http://localhost:3000")},
+		GithubClientID:     getEnv("GITHUB_CLIENT_ID", ""),
+		GithubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
+		GithubAllowedOrg:   getEnv("GITHUB_ALLOWED_ORG", ""),
+		JWTSecret:          getEnv("JWT_SECRET", "secret-key-change-me"),
 	}
 }
 

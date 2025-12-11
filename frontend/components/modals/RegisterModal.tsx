@@ -4,25 +4,18 @@ import { useState } from 'react';
 import styles from './RegisterModal.module.css';
 
 interface RegisterModalProps {
-    isOpen: boolean;
     onClose: () => void;
-    onSubmit: (data: RegisterData) => Promise<void>;
+    onRegister: () => void;
 }
 
-export interface RegisterData {
-    repoUrl: string;
-    pat: string;
-    branch?: string;
-}
-
-export default function RegisterModal({ isOpen, onClose, onSubmit }: RegisterModalProps) {
+export default function RegisterModal({ onClose, onRegister }: RegisterModalProps) {
+    const [name, setName] = useState('');
     const [repoUrl, setRepoUrl] = useState('');
     const [pat, setPat] = useState('');
     const [branch, setBranch] = useState('main');
+    const [path, setPath] = useState('catalog-info.yaml');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-
-    if (!isOpen) return null;
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -30,31 +23,32 @@ export default function RegisterModal({ isOpen, onClose, onSubmit }: RegisterMod
         setError(null);
 
         try {
-            await onSubmit({ repoUrl, pat, branch });
-            // Reset form
-            setRepoUrl('');
-            setPat('');
-            setBranch('main');
+            const response = await fetch('http://localhost:8080/api/v1/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    repo_url: repoUrl,
+                    pat,
+                    branch,
+                    path,
+                }),
+            });
+
+            if (!response.ok) throw new Error('Failed to register catalog');
+
+            onRegister();
             onClose();
         } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to register repository');
+            console.error('Registration failed:', err);
+            setError(err instanceof Error ? err.message : 'Failed to register catalog');
         } finally {
             setLoading(false);
         }
     };
 
-    const handleClose = () => {
-        if (!loading) {
-            setRepoUrl('');
-            setPat('');
-            setBranch('main');
-            setError(null);
-            onClose();
-        }
-    };
-
     return (
-        <div className={styles.overlay} onClick={handleClose}>
+        <div className={styles.overlay} onClick={onClose}>
             <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
                 <div className={styles.header}>
                     <div>
@@ -63,7 +57,7 @@ export default function RegisterModal({ isOpen, onClose, onSubmit }: RegisterMod
                     </div>
                     <button
                         className={styles.closeButton}
-                        onClick={handleClose}
+                        onClick={onClose}
                         disabled={loading}
                         aria-label="Close modal"
                     >
@@ -74,6 +68,27 @@ export default function RegisterModal({ isOpen, onClose, onSubmit }: RegisterMod
                 </div>
 
                 <form onSubmit={handleSubmit} className={styles.form}>
+                    {/* Name Field */}
+                    <div className={styles.formGroup}>
+                        <label htmlFor="name" className={styles.label}>
+                            Name
+                            <span className={styles.required}>*</span>
+                        </label>
+                        <input
+                            id="name"
+                            type="text"
+                            className={styles.input}
+                            placeholder="e.g., Factory, Payments Platform"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            required
+                            disabled={loading}
+                        />
+                        <p className={styles.hint}>
+                            Friendly name for this component/project
+                        </p>
+                    </div>
+
                     {/* Repository URL */}
                     <div className={styles.formGroup}>
                         <label htmlFor="repoUrl" className={styles.label}>
@@ -135,6 +150,25 @@ export default function RegisterModal({ isOpen, onClose, onSubmit }: RegisterMod
                         </p>
                     </div>
 
+                    {/* Path */}
+                    <div className={styles.formGroup}>
+                        <label htmlFor="path" className={styles.label}>
+                            Path to catalog-info.yaml
+                        </label>
+                        <input
+                            id="path"
+                            type="text"
+                            className={styles.input}
+                            placeholder="catalog-info.yaml"
+                            value={path}
+                            onChange={(e) => setPath(e.target.value)}
+                            disabled={loading}
+                        />
+                        <p className={styles.hint}>
+                            Path within repository (e.g., <code>docs/catalog-info.yaml</code>)
+                        </p>
+                    </div>
+
                     {/* Info Box */}
                     <div className={styles.infoBox}>
                         <div className={styles.infoIcon}>
@@ -163,7 +197,7 @@ export default function RegisterModal({ isOpen, onClose, onSubmit }: RegisterMod
                         <button
                             type="button"
                             className={styles.cancelButton}
-                            onClick={handleClose}
+                            onClick={onClose}
                             disabled={loading}
                         >
                             Cancel
