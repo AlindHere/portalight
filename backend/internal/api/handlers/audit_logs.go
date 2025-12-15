@@ -1,120 +1,69 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
-	"sort"
-	"strings"
-	"sync"
-	"time"
 
+	"github.com/portalight/backend/internal/api/middleware"
 	"github.com/portalight/backend/internal/models"
-
-	"github.com/google/uuid"
+	"github.com/portalight/backend/internal/repositories"
 )
 
-// In-memory storage for audit logs (will be replaced with S3)
-var (
-	auditLogs      []models.AuditLog
-	auditLogsMutex sync.RWMutex
-)
-
-// GetAuditLogs retrieves audit logs with optional filtering
+// GetAuditLogs returns audit logs from the database
 func GetAuditLogs(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	ctx := context.Background()
+	auditRepo := &repositories.AuditLogRepository{}
+
+	// Get optional user_email filter from query params
+	userEmail := r.URL.Query().Get("user_email")
+
+	logs, err := auditRepo.GetAll(ctx, userEmail)
+	if err != nil {
+		http.Error(w, "Failed to fetch audit logs", http.StatusInternalServerError)
 		return
 	}
-
-	// Get query parameters for filtering
-	userEmail := r.URL.Query().Get("user_email")
-	action := r.URL.Query().Get("action")
-
-	auditLogsMutex.RLock()
-	defer auditLogsMutex.RUnlock()
-
-	// Filter logs
-	filteredLogs := make([]models.AuditLog, 0)
-	for _, log := range auditLogs {
-		if userEmail != "" && !strings.Contains(strings.ToLower(log.UserEmail), strings.ToLower(userEmail)) {
-			continue
-		}
-		if action != "" && log.Action != action {
-			continue
-		}
-		filteredLogs = append(filteredLogs, log)
-	}
-
-	// Sort by timestamp (newest first)
-	sort.Slice(filteredLogs, func(i, j int) bool {
-		return filteredLogs[i].Timestamp > filteredLogs[j].Timestamp
-	})
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(filteredLogs)
+	json.NewEncoder(w).Encode(logs)
 }
 
-// CreateAuditLog creates a new audit log entry
+// CreateAuditLog creates a new audit log entry in the database
 func CreateAuditLog(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	var log models.AuditLog
 	if err := json.NewDecoder(r.Body).Decode(&log); err != nil {
-		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
-	// Generate ID and timestamp if not provided
-	if log.ID == "" {
-		log.ID = uuid.New().String()
-	}
-	if log.Timestamp == "" {
-		log.Timestamp = time.Now().UTC().Format(time.RFC3339)
-	}
-	if log.Status == "" {
-		log.Status = "success"
+	// Get user email from JWT context
+	userEmail := middleware.GetUserEmail(r.Context())
+	if userEmail != "" {
+		log.UserEmail = userEmail
 	}
 
-	// Get IP address from request
-	if log.IPAddress == "" {
-		log.IPAddress = r.RemoteAddr
+	ctx := context.Background()
+	auditRepo := &repositories.AuditLogRepository{}
+
+	if err := auditRepo.Create(ctx, &log); err != nil {
+		http.Error(w, "Failed to create audit log", http.StatusInternalServerError)
+		return
 	}
 
-	// Store the log
-	auditLogsMutex.Lock()
-	auditLogs = append(auditLogs, log)
-	auditLogsMutex.Unlock()
-
-	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(log)
 }
 
-// CreateAuditLogEntry is a helper function to create audit logs from other handlers
-func CreateAuditLogEntry(log models.AuditLog) error {
-	if log.ID == "" {
-		log.ID = uuid.New().String()
-	}
-	if log.Timestamp == "" {
-		log.Timestamp = time.Now().UTC().Format(time.RFC3339)
-	}
-	if log.Status == "" {
-		log.Status = "success"
-	}
-
-	auditLogsMutex.Lock()
-	auditLogs = append(auditLogs, log)
-	auditLogsMutex.Unlock()
-
-	return nil
+// CreateAuditLogEntry is a helper function to create audit log entries from other handlers
+func CreateAuditLogEntry(log models.AuditLog) {
+	ctx := context.Background()
+	auditRepo := &repositories.AuditLogRepository{}
+	auditRepo.Create(ctx, &log)
 }
 
-// GetAuditLogsCount returns the total count of audit logs
-func GetAuditLogsCount() int {
-	auditLogsMutex.RLock()
-	defer auditLogsMutex.RUnlock()
-	return len(auditLogs)
+// GetAuditLogCount returns the total count of audit logs
+func GetAuditLogCount() int {
+	ctx := context.Background()
+	auditRepo := &repositories.AuditLogRepository{}
+	count, _ := auditRepo.Count(ctx)
+	return count
 }

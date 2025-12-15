@@ -19,15 +19,6 @@ type Service struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
-// Secret represents cloud provider credentials
-type Secret struct {
-	ID         string `json:"id"`
-	Name       string `json:"name"`
-	Provider   string `json:"provider"` // AWS, Azure, GCP
-	Region     string `json:"region"`
-	AWSAccount string `json:"aws_account,omitempty"`
-}
-
 // ProvisionRequest represents a resource provisioning request
 type ProvisionRequest struct {
 	SecretID     string                 `json:"secret_id"`

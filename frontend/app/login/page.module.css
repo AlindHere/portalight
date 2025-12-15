@@ -43,14 +43,116 @@
     font-size: 1.125rem;
 }
 
-.githubButton {
+.githubButton,
+.adminButton {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 0.75rem;
     width: 100%;
     padding: 0.875rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.githubButton {
     background-color: #24292e;
+    color: white;
+    margin-bottom: 1rem;
+}
+
+.githubButton:hover {
+    background-color: #1b1f23;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.adminButton {
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    color: white;
+}
+
+.adminButton:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+.divider {
+    display: flex;
+    align-items: center;
+    margin: 1.5rem 0;
+    color: #9ca3af;
+    font-size: 0.875rem;
+}
+
+.divider::before,
+.divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #e5e7eb;
+}
+
+.divider span {
+    padding: 0 1rem;
+}
+
+.loginForm {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    margin-top: 1.5rem;
+}
+
+.formGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    text-align: left;
+}
+
+.formGroup label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #374151;
+}
+
+.formGroup input {
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.938rem;
+    transition: all 0.2s;
+    outline: none;
+}
+
+.formGroup input:focus {
+    border-color: #10b981;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+.formGroup input:disabled {
+    background: #f3f4f6;
+    cursor: not-allowed;
+}
+
+.error {
+    padding: 0.75rem;
+    background: #fee2e2;
+    border: 1px solid #fecaca;
+    border-radius: 0.5rem;
+    color: #dc2626;
+    font-size: 0.875rem;
+    text-align: left;
+}
+
+.submitButton {
+    padding: 0.875rem;
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
     color: white;
     border: none;
     border-radius: 0.5rem;
@@ -60,8 +162,34 @@
     transition: all 0.2s;
 }
 
-.githubButton:hover {
-    background-color: #1b1f23;
+.submitButton:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+}
+
+.submitButton:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.backButton {
+    padding: 0.75rem;
+    background: white;
+    color: #6b7280;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.backButton:hover:not(:disabled) {
+    background: #f9fafb;
+    color: #374151;
+}
+
+.backButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }

@@ -82,14 +82,18 @@ export default function AccountPage() {
                         <div className={styles.card}>
                             <div className={styles.profileHeader}>
                                 <div className={styles.avatar}>
-                                    {data.user.avatar || data.user.name.substring(0, 2).toUpperCase()}
+                                    {data.user.avatar ? (
+                                        <img src={data.user.avatar} alt={data.user.name} />
+                                    ) : (
+                                        data.user.name.substring(0, 2).toUpperCase()
+                                    )}
                                 </div>
                                 <div className={styles.profileInfo}>
                                     <h2 className={styles.name}>{data.user.name}</h2>
                                     <p className={styles.email}>{data.user.email}</p>
                                     <div className={styles.roleBadge}>
-                                        <span className={`${styles.badge} ${data.user.role === 'admin' ? styles.badgeAdmin : styles.badgeDev}`}>
-                                            {data.user.role === 'admin' ? '👑 Admin' : '👨‍💻 Developer'}
+                                        <span className={`${styles.badge} ${data.user.role === 'superadmin' ? styles.badgeAdmin : data.user.role === 'lead' ? styles.badgeLead : styles.badgeDev}`}>
+                                            {data.user.role === 'superadmin' ? '👑 Superadmin' : data.user.role === 'lead' ? '👔 Lead' : '👨‍💻 Developer'}
                                         </span>
                                     </div>
                                 </div>

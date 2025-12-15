@@ -57,7 +57,7 @@ export default function ProvisionPage() {
         try {
             const data = await fetchSecrets();
             // Filter only AWS credentials
-            const awsSecrets = data.filter(s => s.provider === 'AWS');
+            const awsSecrets = (data || []).filter(s => s.provider === 'AWS');
             setSecrets(awsSecrets);
             if (awsSecrets.length > 0) {
                 setForm(prev => ({ ...prev, secretId: awsSecrets[0].id }));

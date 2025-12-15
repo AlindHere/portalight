@@ -100,6 +100,13 @@
     font-size: 2rem;
     font-weight: 700;
     flex-shrink: 0;
+    overflow: hidden;
+}
+
+.avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 .profileInfo {
@@ -137,6 +144,12 @@
     background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
     color: var(--green-primary);
     border: 1px solid var(--green-primary);
+}
+
+.badgeLead {
+    background: rgba(251, 191, 36, 0.1);
+    color: #f59e0b;
+    border: 1px solid #f59e0b;
 }
 
 .badgeDev {

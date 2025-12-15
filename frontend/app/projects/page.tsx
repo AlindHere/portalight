@@ -24,8 +24,8 @@ export default function ProjectsPage() {
                 fetchProjects(),
                 fetchTeams(),
             ]);
-            setProjects(projectsData);
-            setTeams(teamsData);
+            setProjects(projectsData || []);
+            setTeams(teamsData || []);
         } catch (error) {
             console.error('Failed to load projects:', error);
         } finally {

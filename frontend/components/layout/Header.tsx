@@ -38,8 +38,14 @@ export default function Header() {
             const data = await fetchCurrentUser();
             setCurrentUser(data.user);
         } catch (error) {
-            console.error('Failed to load current user:', error);
+            // Silently handle - authentication errors are expected on login/public pages
+            // Don't redirect or log errors, just leave currentUser as null
         }
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        router.push('/login');
     };
 
     return (
@@ -72,14 +78,22 @@ export default function Header() {
                             onClick={() => setShowDropdown(!showDropdown)}
                             aria-label="User menu"
                         >
-                            {currentUser?.avatar || 'JD'}
+                            {currentUser?.avatar ? (
+                                <img src={currentUser.avatar} alt={currentUser.name} />
+                            ) : (
+                                currentUser?.name?.substring(0, 2).toUpperCase() || 'U'
+                            )}
                         </button>
 
                         {showDropdown && (
                             <div className={styles.dropdown}>
                                 <div className={styles.dropdownHeader}>
                                     <div className={styles.dropdownAvatar}>
-                                        {currentUser?.avatar || 'JD'}
+                                        {currentUser?.avatar ? (
+                                            <img src={currentUser.avatar} alt={currentUser.name} />
+                                        ) : (
+                                            currentUser?.name?.substring(0, 2).toUpperCase() || 'U'
+                                        )}
                                     </div>
                                     <div className={styles.dropdownUserInfo}>
                                         <div className={styles.dropdownName}>
@@ -89,7 +103,7 @@ export default function Header() {
                                             {currentUser?.email || 'john.doe@company.com'}
                                         </div>
                                         <div className={styles.dropdownRole}>
-                                            {currentUser?.role === 'admin' ? '👑 Admin' : '👨‍💻 Developer'}
+                                            {currentUser?.role === 'superadmin' ? '👑 Superadmin' : currentUser?.role === 'lead' ? '👔 Lead' : '👨‍💻 Developer'}
                                         </div>
                                     </div>
                                 </div>
@@ -151,6 +165,18 @@ export default function Header() {
                                             </button>
                                         </>
                                     )}
+
+                                    <div className={styles.dropdownDivider}></div>
+
+                                    <button
+                                        className={`${styles.dropdownItem} ${styles.logoutButton}`}
+                                        onClick={handleLogout}
+                                    >
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                        </svg>
+                                        Logout
+                                    </button>
                                 </div>
                             </div>
                         )}

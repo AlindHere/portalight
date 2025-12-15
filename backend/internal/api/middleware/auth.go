@@ -12,6 +12,7 @@ import (
 
 type Claims struct {
 	UserID string `json:"user_id"`
+	Email  string `json:"email"`
 	Role   string `json:"role"`
 	jwt.RegisteredClaims
 }
@@ -19,8 +20,9 @@ type Claims struct {
 type contextKey string
 
 const (
-	UserIDKey   contextKey = "userID"
-	UserRoleKey contextKey = "userRole"
+	UserIDKey    contextKey = "userID"
+	UserEmailKey contextKey = "email"
+	UserRoleKey  contextKey = "userRole"
 )
 
 func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
@@ -50,6 +52,7 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 
 			// Set user info in context
 			ctx := context.WithValue(r.Context(), UserIDKey, claims.UserID)
+			ctx = context.WithValue(ctx, UserEmailKey, claims.Email)
 			ctx = context.WithValue(ctx, UserRoleKey, claims.Role)
 
 			next.ServeHTTP(w, r.WithContext(ctx))
@@ -60,6 +63,14 @@ func AuthMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 // GetUserID returns the user ID from the context
 func GetUserID(ctx context.Context) string {
 	if val, ok := ctx.Value(UserIDKey).(string); ok {
+		return val
+	}
+	return ""
+}
+
+// GetUserEmail returns the user email from the context
+func GetUserEmail(ctx context.Context) string {
+	if val, ok := ctx.Value(UserEmailKey).(string); ok {
 		return val
 	}
 	return ""

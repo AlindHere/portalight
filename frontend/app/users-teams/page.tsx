@@ -32,9 +32,9 @@ export default function UsersTeamsPage() {
                 fetchProjects(),
             ]);
             setCurrentUser(currentUserData.user);
-            setUsers(usersData);
-            setTeams(teamsData);
-            setProjects(projectsData);
+            setUsers(usersData || []);
+            setTeams(teamsData || []);
+            setProjects(projectsData || []);
         } catch (error) {
             console.error('Failed to load data:', error);
         } finally {
@@ -188,28 +188,20 @@ export default function UsersTeamsPage() {
                                             <td>
                                                 <div className={styles.userCell}>
                                                     <div className={styles.userAvatar}>
-                                                        {user.avatar || user.name.substring(0, 2).toUpperCase()}
+                                                        {user.avatar ? (
+                                                            <img src={user.avatar} alt={user.name} />
+                                                        ) : (
+                                                            user.name.substring(0, 2).toUpperCase()
+                                                        )}
                                                     </div>
                                                     <span className={styles.userName}>{user.name}</span>
                                                 </div>
                                             </td>
                                             <td>{user.email}</td>
                                             <td>
-                                                {isAdmin ? (
-                                                    <select
-                                                        value={user.role}
-                                                        onChange={(e) => handleRoleChange(user, e.target.value as 'superadmin' | 'lead' | 'dev')}
-                                                        className={`${styles.roleSelect} ${user.role === 'superadmin' ? styles.roleAdmin : styles.roleDev}`}
-                                                    >
-                                                        <option value="superadmin">👑 Superadmin</option>
-                                                        <option value="lead">👔 Lead</option>
-                                                        <option value="dev">👨‍💻 Developer</option>
-                                                    </select>
-                                                ) : (
-                                                    <span className={`${styles.roleBadge} ${user.role === 'superadmin' ? styles.roleAdmin : styles.roleDev}`}>
-                                                        {user.role === 'superadmin' ? '👑 Superadmin' : user.role === 'lead' ? '👔 Lead' : '👨‍💻 Developer'}
-                                                    </span>
-                                                )}
+                                                <span className={`${styles.roleBadge} ${user.role === 'superadmin' ? styles.roleAdmin : user.role === 'lead' ? styles.roleLead : styles.roleDev}`}>
+                                                    {user.role === 'superadmin' ? '👑 Superadmin' : user.role === 'lead' ? '👔 Lead' : '👨‍💻 Developer'}
+                                                </span>
                                             </td>
                                             <td>
                                                 <div className={styles.teamsCell}>
@@ -275,7 +267,7 @@ export default function UsersTeamsPage() {
                                     >
                                         <div className={styles.teamHeader}>
                                             <div className={styles.teamIcon}>
-                                                {team.name.substring(0, 1)}
+                                                {team.name.split(' ').map(word => word[0]).join('').substring(0, 2).toUpperCase()}
                                             </div>
                                             <div style={{ flex: 1 }}>
                                                 <h3>{team.name}</h3>
@@ -302,7 +294,11 @@ export default function UsersTeamsPage() {
                                             {teamMembers.slice(0, 5).map((member) => (
                                                 <div key={member.id} className={styles.memberBadge}>
                                                     <div className={styles.memberAvatar}>
-                                                        {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                                                        {member.avatar && member.avatar.startsWith('http') ? (
+                                                            <img src={member.avatar} alt={member.name} />
+                                                        ) : (
+                                                            member.avatar || member.name.substring(0, 2).toUpperCase()
+                                                        )}
                                                     </div>
                                                     <span>{member.name.split(' ')[0]}</span>
                                                 </div>
@@ -551,7 +547,11 @@ function CreateTeamModal({
                                         className={styles.checkbox}
                                     />
                                     <div className={styles.userAvatar}>
-                                        {user.avatar || user.name.substring(0, 2).toUpperCase()}
+                                        {user.avatar ? (
+                                            <img src={user.avatar} alt={user.name} />
+                                        ) : (
+                                            user.name.substring(0, 2).toUpperCase()
+                                        )}
                                     </div>
                                     <div className={styles.memberInfo}>
                                         <div className={styles.memberName}>{user.name}</div>
@@ -736,7 +736,11 @@ function TeamDetailModal({
                                             borderRadius: '0.5rem'
                                         }}>
                                             <div className={styles.userAvatar}>
-                                                {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                                                {member.avatar ? (
+                                                    <img src={member.avatar} alt={member.name} />
+                                                ) : (
+                                                    member.name.substring(0, 2).toUpperCase()
+                                                )}
                                             </div>
                                             <div style={{ flex: 1 }}>
                                                 <div style={{ fontWeight: 500, color: '#111827' }}>{member.name}</div>
@@ -773,7 +777,11 @@ function TeamDetailModal({
                                                 borderRadius: '0.5rem'
                                             }}>
                                                 <div className={styles.userAvatar} style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}>
-                                                    {member.avatar || member.name.substring(0, 2).toUpperCase()}
+                                                    {member.avatar ? (
+                                                        <img src={member.avatar} alt={member.name} />
+                                                    ) : (
+                                                        member.name.substring(0, 2).toUpperCase()
+                                                    )}
                                                 </div>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: 500, color: '#111827', fontSize: '0.875rem' }}>{member.name}</div>
@@ -817,7 +825,11 @@ function TeamDetailModal({
                                                     borderRadius: '0.5rem'
                                                 }}>
                                                     <div className={styles.userAvatar} style={{ width: '2rem', height: '2rem', fontSize: '0.75rem' }}>
-                                                        {user.avatar || user.name.substring(0, 2).toUpperCase()}
+                                                        {user.avatar ? (
+                                                            <img src={user.avatar} alt={user.name} />
+                                                        ) : (
+                                                            user.name.substring(0, 2).toUpperCase()
+                                                        )}
                                                     </div>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ fontWeight: 500, color: '#111827', fontSize: '0.875rem' }}>{user.name}</div>

@@ -50,9 +50,9 @@ export default function ConfigurationPage() {
                 fetchTeams(),
                 fetchSecrets(),
             ]);
-            setUsers(usersData);
-            setTeams(teamsData);
-            setCredentials(credentialsData);
+            setUsers(usersData || []);
+            setTeams(teamsData || []);
+            setCredentials(credentialsData || []);
         } catch (error) {
             console.error('Failed to load data:', error);
         }
@@ -199,27 +199,43 @@ function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[
     const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
 
     const handleRoleChange = async (userId: string, newRole: string) => {
+        console.log('🔔 handleRoleChange called!', { userId, newRole });
         setUpdating(userId);
         try {
             const user = users.find(u => u.id === userId);
             if (!user) return;
 
+            // Get token from localStorage for Authorization header
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
+            console.log('Updating role for user:', userId, 'to:', newRole);
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/v1/users/${userId}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
-                    ...user,
                     role: newRole
                 }),
             });
 
-            if (!response.ok) throw new Error('Failed to update user role');
+            console.log('Response status:', response.status);
+            const responseData = await response.json();
+            console.log('Response data:', responseData);
+
+            if (!response.ok) {
+                throw new Error(`Failed to update user role: ${response.status} ${JSON.stringify(responseData)}`);
+            }
 
             alert(`✅ Successfully updated ${user.name}'s role to ${newRole}`);
             await onRefresh();
         } catch (error) {
             console.error('Failed to update role:', error);
-            alert('❌ Failed to update user role. Please try again.');
+            alert(`❌ Failed to update user role. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
         } finally {
             setUpdating(null);
         }
@@ -249,11 +265,19 @@ function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[
             const user = users.find(u => u.id === editingTeams);
             if (!user) return;
 
+            // Get token from localStorage for Authorization header
+            const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+            const headers: Record<string, string> = {
+                'Content-Type': 'application/json',
+            };
+            if (token) {
+                headers['Authorization'] = `Bearer ${token}`;
+            }
+
             const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8080'}/api/v1/users/${editingTeams}`, {
                 method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
+                headers,
                 body: JSON.stringify({
-                    ...user,
                     team_ids: selectedTeams
                 }),
             });
@@ -294,7 +318,13 @@ function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[
                             <tr key={user.id}>
                                 <td>
                                     <div className={styles.userCell}>
-                                        <div className={styles.userAvatar}>{user.avatar || user.name.substring(0, 2)}</div>
+                                        <div className={styles.userAvatar}>
+                                            {user.avatar ? (
+                                                <img src={user.avatar} alt={user.name} />
+                                            ) : (
+                                                user.name.substring(0, 2).toUpperCase()
+                                            )}
+                                        </div>
                                         <span>{user.name}</span>
                                     </div>
                                 </td>

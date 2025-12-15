@@ -2,18 +2,21 @@ package handlers
 
 import (
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/github"
 
 	"github.com/portalight/backend/internal/api/middleware"
 	"github.com/portalight/backend/internal/config"
 	"github.com/portalight/backend/internal/models"
+	"github.com/portalight/backend/internal/repositories"
 )
 
 type AuthHandler struct {
@@ -32,6 +35,81 @@ func NewAuthHandler(cfg *config.Config) *AuthHandler {
 			RedirectURL:  fmt.Sprintf("http://localhost:%s/auth/github/callback", cfg.Port),
 		},
 	}
+}
+
+// LoginRequest represents username/password login request
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// LoginResponse represents login response
+type LoginResponse struct {
+	Token string      `json:"token"`
+	User  models.User `json:"user"`
+}
+
+// HandleLogin handles username/password login (for superadmin only)
+func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid request"})
+		return
+	}
+
+	// Find superadmin user
+	ctx := context.Background()
+	userRepo := &repositories.UserRepository{}
+
+	superadmin, err := userRepo.FindByEmail(ctx, req.Username)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		return
+	}
+
+	if superadmin.Role != models.RoleAdmin {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		return
+	}
+
+	// Verify password
+	if err := bcrypt.CompareHashAndPassword([]byte(superadmin.PasswordHash), []byte(req.Password)); err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Invalid credentials"})
+		return
+	}
+
+	// Generate JWT
+	token, err := h.generateToken(superadmin.ID, superadmin.Email, string(superadmin.Role))
+	if err != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusInternalServerError)
+		json.NewEncoder(w).Encode(map[string]string{"error": "Failed to generate token"})
+		return
+	}
+
+	response := LoginResponse{
+		Token: token,
+		User: models.User{
+			ID:        superadmin.ID,
+			Name:      superadmin.Name,
+			Email:     superadmin.Email,
+			Role:      superadmin.Role,
+			TeamIDs:   superadmin.TeamIDs,
+			Avatar:    superadmin.Avatar,
+			CreatedAt: superadmin.CreatedAt,
+		},
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 func (h *AuthHandler) HandleGithubLogin(w http.ResponseWriter, r *http.Request) {
@@ -105,17 +183,78 @@ func (h *AuthHandler) HandleGithubCallback(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
-	// 3. Create or Update User (Mock DB logic for now)
-	role := models.RoleDev
-	if githubUser.Login == "admin-user" { // Example admin check
-		role = models.RoleAdmin
-	}
+	// 3. Find or Create User
+	user := h.findOrCreateGithubUser(githubUser.ID, githubUser.Login, githubUser.Name, githubUser.Email, githubUser.AvatarURL)
 
 	// 4. Generate JWT
+	jwtToken, err := h.generateToken(user.ID, user.Email, string(user.Role))
+	if err != nil {
+		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
+		return
+	}
+
+	// 5. Redirect to Frontend with Token
+	frontendURL := "http://localhost:3000/auth/callback?token=" + jwtToken
+	http.Redirect(w, r, frontendURL, http.StatusTemporaryRedirect)
+}
+
+// findOrCreateGithubUser finds existing user or creates new one with dev role
+func (h *AuthHandler) findOrCreateGithubUser(githubID int64, login, name, email, avatarURL string) *models.User {
+	// Use GitHub username as fallback if name is empty
+	displayName := name
+	if displayName == "" {
+		displayName = login
+	}
+
+	// If email is empty (privacy settings), use GitHub username
+	userEmail := email
+	if userEmail == "" {
+		userEmail = login
+	}
+
+	ctx := context.Background()
+	userRepo := &repositories.UserRepository{}
+
+	// Try to find existing user by GitHub ID
+	existingUser, err := userRepo.FindByGithubID(ctx, githubID)
+	if err == nil {
+		// Update user info on each login
+		existingUser.Name = displayName
+		existingUser.Email = userEmail
+		existingUser.Avatar = avatarURL
+		existingUser.GithubUsername = login
+		userRepo.Update(ctx, existingUser)
+		return existingUser
+	}
+
+	// Create new user with dev role
+	newUser := &models.User{
+		Name:           displayName,
+		Email:          userEmail,
+		Role:           models.RoleDev, // All new GitHub users start as dev
+		TeamIDs:        []string{},
+		Avatar:         avatarURL,
+		GithubID:       githubID,
+		GithubUsername: login,
+		CreatedAt:      time.Now(),
+	}
+
+	if err := userRepo.Create(ctx, newUser); err != nil {
+		// Fallback to in-memory if database fails (shouldn't happen)
+		newUser.ID = generateID()
+		return newUser
+	}
+
+	return newUser
+}
+
+// generateToken generates a JWT token
+func (h *AuthHandler) generateToken(userID, email, role string) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 	claims := &middleware.Claims{
-		UserID: githubUser.Login,
-		Role:   string(role),
+		UserID: userID,
+		Email:  email,
+		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expirationTime),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -124,13 +263,12 @@ func (h *AuthHandler) HandleGithubCallback(w http.ResponseWriter, r *http.Reques
 	}
 
 	jwtToken := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := jwtToken.SignedString([]byte(h.Config.JWTSecret))
-	if err != nil {
-		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
-		return
-	}
+	return jwtToken.SignedString([]byte(h.Config.JWTSecret))
+}
 
-	// 5. Redirect to Frontend with Token
-	frontendURL := "http://localhost:3000/auth/callback?token=" + tokenString
-	http.Redirect(w, r, frontendURL, http.StatusTemporaryRedirect)
+// generateID generates a random ID
+func generateID() string {
+	b := make([]byte, 16)
+	rand.Read(b)
+	return fmt.Sprintf("%x", b)
 }

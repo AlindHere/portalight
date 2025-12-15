@@ -21,6 +21,7 @@ type User struct {
 	Avatar         string    `json:"avatar,omitempty"`
 	GithubID       int64     `json:"github_id,omitempty"`
 	GithubUsername string    `json:"github_username,omitempty"`
+	PasswordHash   string    `json:"-"` // Password hash, not exposed in JSON
 	CreatedAt      time.Time `json:"created_at"`
 }
 

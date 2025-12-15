@@ -45,7 +45,7 @@ export default function AuditLogsPage() {
     const loadLogs = async () => {
         try {
             const data = await fetchAuditLogs(filters);
-            setLogs(data);
+            setLogs(data || []);
         } catch (error) {
             console.error('Failed to load audit logs:', error);
         } finally {

@@ -21,7 +21,6 @@ func main() {
 	defer database.Close()
 
 	// Initialize handlers
-	serviceHandler := handlers.NewServiceHandler()
 	secretHandler := handlers.NewSecretHandler()
 	provisionHandler := handlers.NewProvisionHandler()
 	authHandler := handlers.NewAuthHandler(cfg)
@@ -30,20 +29,18 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Auth endpoints
+	mux.HandleFunc("/auth/login", authHandler.HandleLogin) // Username/password login
 	mux.HandleFunc("/auth/github/login", authHandler.HandleGithubLogin)
 	mux.HandleFunc("/auth/github/callback", authHandler.HandleGithubCallback)
 
-	// Service catalog endpoints
+	// Services API
 	mux.HandleFunc("/api/v1/services", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
-			serviceHandler.GetServices(w, r)
-		} else if r.Method == http.MethodPost {
-			serviceHandler.CreateService(w, r)
+			handlers.GetServices(w, r)
 		} else {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
-	mux.HandleFunc("/api/v1/services/", serviceHandler.GetServiceByID)
 
 	// Secret management endpoints
 	mux.HandleFunc("/api/v1/secrets", secretHandler.GetSecrets)
@@ -127,8 +124,12 @@ func main() {
 		w.Write([]byte(`{"status":"healthy"}`))
 	})
 
-	// Apply CORS middleware
-	handler := middleware.CORS(cfg.CORSAllowedOrigins)(mux)
+	// Apply Auth middleware to all /api/* routes, then CORS
+	handler := applyMiddleware(
+		mux,
+		cfg,
+		[]string{"/health", "/auth/login", "/auth/github/login", "/auth/github/callback"},
+	)
 
 	// Start server
 	addr := fmt.Sprintf(":%s", cfg.Port)
@@ -138,4 +139,23 @@ func main() {
 	if err := http.ListenAndServe(addr, handler); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// applyMiddleware applies auth middleware to all routes except excluded ones
+func applyMiddleware(handler http.Handler, cfg *config.Config, excludedPaths []string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Check if path should be excluded from auth
+		for _, path := range excludedPaths {
+			if r.URL.Path == path || r.URL.Path == path+"/" {
+				// Apply CORS only
+				middleware.CORS(cfg.CORSAllowedOrigins)(handler).ServeHTTP(w, r)
+				return
+			}
+		}
+
+		// Apply both Auth and CORS middleware for protected routes
+		middleware.CORS(cfg.CORSAllowedOrigins)(
+			middleware.AuthMiddleware(cfg)(handler),
+		).ServeHTTP(w, r)
+	})
 }

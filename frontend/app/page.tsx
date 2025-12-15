@@ -35,13 +35,23 @@ export default function Home() {
         fetchUsers(),
         fetchCurrentUser(),
       ]);
-      setProjects(projectsData);
-      setTeams(teamsData);
-      setServices(servicesData);
-      setUsers(usersData);
+      setProjects(projectsData || []);
+      setTeams(teamsData || []);
+      setServices(servicesData || []);
+      setUsers(usersData || []);
       setCurrentUser(currentUserData.user);
     } catch (error) {
-      console.error('Failed to load data:', error);
+      // Check if user has a token
+      if (typeof window !== 'undefined') {
+        const token = localStorage.getItem('token');
+        if (!token) {
+          // No token - redirect to login (expected behavior, no error logging needed)
+          router.push('/login');
+        } else {
+          // Has token but fetch failed - log error
+          console.error('Dashboard data load failed:', error);
+        }
+      }
     } finally {
       setLoading(false);
     }

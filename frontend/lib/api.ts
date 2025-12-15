@@ -2,8 +2,24 @@ import { Service, Secret, Stats } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
+// Helper function to get headers with auth token
+function getHeaders(additionalHeaders: Record<string, string> = {}): HeadersInit {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    const headers: Record<string, string> = {
+        ...additionalHeaders,
+    };
+
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return headers;
+}
+
 export async function fetchServices(): Promise<Service[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/services`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/services`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch services');
     }
@@ -13,9 +29,7 @@ export async function fetchServices(): Promise<Service[]> {
 export async function createService(service: Partial<Service>): Promise<Service> {
     const response = await fetch(`${API_BASE_URL}/api/v1/services`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(service),
     });
     if (!response.ok) {
@@ -25,7 +39,9 @@ export async function createService(service: Partial<Service>): Promise<Service>
 }
 
 export async function fetchSecrets(): Promise<Secret[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/secrets`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/secrets`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) {
         throw new Error('Failed to fetch secrets');
     }
@@ -35,9 +51,7 @@ export async function fetchSecrets(): Promise<Secret[]> {
 export async function provisionResource(request: any): Promise<any> {
     const response = await fetch(`${API_BASE_URL}/api/v1/provision`, {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(request),
     });
     if (!response.ok) {
@@ -57,13 +71,17 @@ export function calculateStats(services: Service[]): Stats {
 
 // User Management API
 export async function fetchCurrentUser(): Promise<import('./types').CurrentUserResponse> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/users/current`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/users/current`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch current user');
     return response.json();
 }
 
 export async function fetchUsers(): Promise<import('./types').User[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/users`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch users');
     return response.json();
 }
@@ -71,7 +89,7 @@ export async function fetchUsers(): Promise<import('./types').User[]> {
 export async function createUser(user: Partial<import('./types').User>): Promise<import('./types').User> {
     const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(user),
     });
     if (!response.ok) throw new Error('Failed to create user');
@@ -81,7 +99,7 @@ export async function createUser(user: Partial<import('./types').User>): Promise
 export async function updateUser(user: import('./types').User): Promise<import('./types').User> {
     const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(user),
     });
     if (!response.ok) throw new Error('Failed to update user');
@@ -91,13 +109,16 @@ export async function updateUser(user: import('./types').User): Promise<import('
 export async function deleteUser(userId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/v1/users?id=${userId}`, {
         method: 'DELETE',
+        headers: getHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete user');
 }
 
 // Team Management API
 export async function fetchTeams(): Promise<import('./types').Team[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/teams`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/teams`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch teams');
     return response.json();
 }
@@ -105,7 +126,7 @@ export async function fetchTeams(): Promise<import('./types').Team[]> {
 export async function createTeam(name: string, description: string): Promise<import('./types').Team> {
     const response = await fetch(`${API_BASE_URL}/api/v1/teams`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ name, description }),
     });
     if (!response.ok) throw new Error('Failed to create team');
@@ -115,6 +136,7 @@ export async function createTeam(name: string, description: string): Promise<imp
 export async function deleteTeam(teamId: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/api/v1/teams?id=${teamId}`, {
         method: 'DELETE',
+        headers: getHeaders(),
     });
     if (!response.ok) throw new Error('Failed to delete team');
 }
@@ -122,7 +144,7 @@ export async function deleteTeam(teamId: string): Promise<void> {
 export async function updateTeamMembers(teamId: string, memberIds: string[]): Promise<import('./types').Team> {
     const response = await fetch(`${API_BASE_URL}/api/v1/teams/members`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ team_id: teamId, member_ids: memberIds }),
     });
     if (!response.ok) throw new Error('Failed to update team members');
@@ -131,20 +153,24 @@ export async function updateTeamMembers(teamId: string, memberIds: string[]): Pr
 
 // Project Management API
 export async function fetchProjects(): Promise<import('./types').Project[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/projects`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch projects');
     return response.json();
 }
 
 export async function fetchProjectById(id: string): Promise<import('./types').ProjectWithServices> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`);
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
+        headers: getHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch project');
     return response.json();
 }
 export async function updateProjectAccess(projectId: string, teamIds: string[], userIds: string[]): Promise<import('./types').Project> {
     const response = await fetch(`${API_BASE_URL}/api/v1/projects/access`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ project_id: projectId, team_ids: teamIds, user_ids: userIds }),
     });
     if (!response.ok) throw new Error('Failed to update project access');
@@ -153,7 +179,7 @@ export async function updateProjectAccess(projectId: string, teamIds: string[], 
 export async function updateProject(id: string, data: Partial<import('./types').Project>): Promise<import('./types').Project> {
     const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(data),
     });
     if (!response.ok) throw new Error('Failed to update project');
@@ -167,7 +193,9 @@ export async function fetchAuditLogs(params?: import('./types').AuditLogQueryPar
     if (params?.action) queryParams.append('action', params.action);
 
     const url = `${API_BASE_URL}/api/v1/audit-logs${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        headers: getHeaders(),
+    });
     if (!response.ok) throw new Error('Failed to fetch audit logs');
     return response.json();
 }
@@ -175,7 +203,7 @@ export async function fetchAuditLogs(params?: import('./types').AuditLogQueryPar
 export async function createAuditLog(log: Partial<import('./types').AuditLog>): Promise<import('./types').AuditLog> {
     const response = await fetch(`${API_BASE_URL}/api/v1/audit-logs`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(log),
     });
     if (!response.ok) throw new Error('Failed to create audit log');
