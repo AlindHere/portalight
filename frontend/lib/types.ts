@@ -2,6 +2,7 @@ export interface Service {
     id: string;
     name: string;
     team: string;
+    project_id?: string;
     description: string;
     environment: 'Production' | 'Staging' | 'Experimental';
     language: string;
@@ -10,16 +11,47 @@ export interface Service {
     owner: string;
     grafana_url?: string;
     confluence_url?: string;
+    catalog_source?: string;
+    auto_synced?: boolean;
+    catalog_metadata?: any;
     created_at: string;
     updated_at: string;
 }
 
+
+
+// Projects
+export interface Project {
+    id: string;
+    name: string;
+    description: string;
+    confluence_url?: string;
+    avatar?: string;
+    owner_team_id?: string;
+    secret_id?: string; // AWS credential for this project
+    team_ids?: string[];
+    user_ids?: string[];
+    catalog_file_path?: string;
+    catalog_metadata?: any;
+    last_synced_at?: string;
+    sync_status?: string;
+    sync_error?: string;
+    auto_synced?: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+
 export interface Secret {
     id: string;
     name: string;
-    aws_account?: string;  // AWS account identifier
     provider: 'AWS' | 'Azure' | 'GCP';
     region: string;
+    account_id?: string;
+    access_type?: 'read' | 'write';
+    created_by?: string;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface ProvisionRequest {
@@ -66,19 +98,7 @@ export interface CurrentUserResponse {
     permissions: Permission[];
 }
 
-// Projects
-export interface Project {
-    id: string;
-    name: string;
-    description: string;
-    confluence_url?: string;
-    avatar?: string;
-    owner_team_id?: string;
-    team_ids?: string[];
-    user_ids?: string[];
-    created_at: string;
-    updated_at: string;
-}
+
 
 export interface ProjectWithServices extends Project {
     services: Service[];
@@ -105,4 +125,15 @@ export interface AuditLogQueryParams {
     action?: string;
     limit?: number;
     offset?: number;
+}
+
+export interface Resource {
+    id: string;
+    project_id: string;
+    name: string;
+    type: string;
+    status: 'provisioning' | 'active' | 'failed';
+    config: any;
+    created_at: string;
+    updated_at: string;
 }

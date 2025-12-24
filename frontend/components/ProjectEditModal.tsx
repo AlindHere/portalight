@@ -1,6 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Project } from '@/lib/types';
+import { fetchAWSCredentials } from '@/lib/api';
 import styles from './ProjectEditModal.module.css';
+import CustomDropdown from './ui/CustomDropdown';
+
+interface Secret {
+    id: string;
+    name: string;
+    provider: string;
+    region?: string;
+}
 
 interface ProjectEditModalProps {
     project: Project;
@@ -17,7 +26,22 @@ export default function ProjectEditModal({
     const [description, setDescription] = useState(project.description);
     const [confluenceUrl, setConfluenceUrl] = useState(project.confluence_url || '');
     const [avatar, setAvatar] = useState(project.avatar || '');
+    const [secretId, setSecretId] = useState(project.secret_id || '');
+    const [credentials, setCredentials] = useState<Secret[]>([]);
     const [isSaving, setIsSaving] = useState(false);
+
+    useEffect(() => {
+        loadCredentials();
+    }, []);
+
+    const loadCredentials = async () => {
+        try {
+            const creds = await fetchAWSCredentials();
+            setCredentials(creds || []);
+        } catch (error) {
+            console.error('Failed to load credentials:', error);
+        }
+    };
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -38,7 +62,8 @@ export default function ProjectEditModal({
                 name,
                 description,
                 confluence_url: confluenceUrl,
-                avatar
+                avatar,
+                secret_id: secretId || undefined
             });
             onClose();
         } catch (error) {
@@ -154,6 +179,29 @@ export default function ProjectEditModal({
                             </div>
                         </div>
 
+                        {/* AWS Credential Selector */}
+                        <div className={styles.formGroup}>
+                            <label className={styles.label} htmlFor="awsCredential">
+                                🔑 AWS Credential
+                            </label>
+                            <CustomDropdown
+                                options={[
+                                    { value: '', label: '-- Select AWS Credential --' },
+                                    ...credentials.map((cred) => ({
+                                        value: cred.id,
+                                        label: `${cred.name} (${cred.region || 'Global'})`
+                                    }))
+                                ]}
+                                value={secretId}
+                                onChange={setSecretId}
+                                placeholder="Select AWS Credential"
+                            />
+
+                            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.5rem' }}>
+                                This credential will be used for resource discovery, provisioning, and metrics for this project.
+                            </p>
+                        </div>
+
 
                     </div>
 
@@ -186,3 +234,4 @@ export default function ProjectEditModal({
         </div>
     );
 }
+

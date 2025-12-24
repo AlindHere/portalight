@@ -43,26 +43,68 @@ type Permission struct {
 }
 
 // GetPermissions returns permissions for a role
+// Dev: Read-only, can view audit logs but NO write access
+// Lead: All write access EXCEPT configuration page
+// Superadmin: Full access
 func GetPermissions(role Role) []Permission {
-	basePermissions := []Permission{
+	// All roles start with these base read permissions
+	permissions := []Permission{
+		// View permissions (all roles)
 		{Resource: "services", Action: "view", Allowed: true},
+		{Resource: "projects", Action: "view", Allowed: true},
+		{Resource: "teams", Action: "view", Allowed: true},
+		{Resource: "audit_logs", Action: "view", Allowed: true},
+		{Resource: "resources", Action: "view", Allowed: true},
+
+		// Write permissions (default: not allowed for dev)
 		{Resource: "services", Action: "create", Allowed: false},
+		{Resource: "services", Action: "update", Allowed: false},
 		{Resource: "services", Action: "delete", Allowed: false},
+		{Resource: "projects", Action: "create", Allowed: false},
+		{Resource: "projects", Action: "update", Allowed: false},
+		{Resource: "projects", Action: "delete", Allowed: false},
+		{Resource: "teams", Action: "create", Allowed: false},
+		{Resource: "teams", Action: "update", Allowed: false},
+		{Resource: "teams", Action: "delete", Allowed: false},
 		{Resource: "provision", Action: "create", Allowed: false},
 		{Resource: "members", Action: "view", Allowed: false},
 		{Resource: "members", Action: "manage", Allowed: false},
-		{Resource: "teams", Action: "view", Allowed: true},
-		{Resource: "teams", Action: "manage", Allowed: false},
+
+		// Configuration permissions (superadmin only)
+		{Resource: "configuration", Action: "view", Allowed: false},
+		{Resource: "configuration", Action: "manage", Allowed: false},
+		{Resource: "credentials", Action: "view", Allowed: false},
+		{Resource: "credentials", Action: "manage", Allowed: false},
+		{Resource: "users", Action: "manage", Allowed: false},
 	}
 
-	if role == RoleAdmin {
-		// Admin has all permissions
-		for i := range basePermissions {
-			basePermissions[i].Allowed = true
+	switch role {
+	case RoleAdmin:
+		// Superadmin has all permissions
+		for i := range permissions {
+			permissions[i].Allowed = true
 		}
+
+	case RoleLead:
+		// Lead has write access except configuration
+		for i := range permissions {
+			p := &permissions[i]
+			// Allow all write permissions except configuration-related
+			if p.Resource != "configuration" && p.Resource != "credentials" && p.Resource != "users" {
+				p.Allowed = true
+			}
+			// Lead can view members
+			if p.Resource == "members" && p.Action == "view" {
+				p.Allowed = true
+			}
+		}
+
+	case RoleDev:
+		// Dev is read-only, base permissions already set
+		// Only view permissions are allowed (already set above)
 	}
 
-	return basePermissions
+	return permissions
 }
 
 // CanPerform checks if a user has permission for an action

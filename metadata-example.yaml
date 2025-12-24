@@ -1,15 +1,219 @@
-# Example metadata file for service catalog
-id: payments-service-go
-name: payments-service-go
-team: Team Fintech
-description: Core payment processing microservice handling Stripe and PayPal webhooks.
-environment: Production  # Production, Staging
-language: Go
-tags:
-  - go
-  - payments
-  - critical
-repository: https://github.com/company/payments-service
-owner: fintech-team
-grafana_url: https://grafana.company.com/d/payments
-confluence_url: https://confluence.company.com/payments
+apiVersion: portalight.dev/v1alpha1
+kind: ProjectCatalog
+
+metadata:
+  # Unique identifier for this project (kebab-case)
+  name: payments-platform
+  
+  # Display name shown in UI
+  title: Payments Platform
+  
+  # Detailed description
+  description: Core payment processing infrastructure including billing, invoicing, and payment gateway integrations
+  
+  # Tags for categorization and filtering
+  tags:
+    - payments
+    - critical
+    - fintech
+    - pci-compliant
+  
+  # Team that owns this project (team name from Portalight)
+  # Will be matched to database team by name (case-insensitive)
+  owner: Platform Team
+  
+  # External links related to this project
+  links:
+    - url: https://confluence.company.com/display/PAY/Payments-Platform
+      title: Project Documentation
+      type: confluence
+    
+    - url: https://jira.company.com/projects/PAY
+      title: JIRA Board
+      type: jira
+    
+    - url: https://app.datadoghq.com/dashboard/payments
+      title: Datadog Dashboard
+      type: datadog
+
+spec:
+  # List of all services in this project
+  services:
+    # ============================================
+    # Service 1: REST API
+    # ============================================
+    - name: payments-api
+      title: Payments REST API
+      description: Core payment processing API handling transactions, refunds, and payment methods
+      
+      # Optional: Override project owner for this specific service
+      # owner: Engineering Team
+      
+      # Programming language/framework
+      language: Go
+      
+      # Environment/lifecycle stage
+      environment: production
+      
+      # GitHub repository URL (optional)
+      repository: https://github.com/myorg/payments-api
+      
+      # Tags specific to this service
+      tags:
+        - api
+        - rest
+        - payment-processing
+        - go
+      
+      # Service-specific links
+      links:
+        - url: https://grafana.company.com/d/payments-api
+          title: Grafana Dashboard
+          type: grafana
+        
+        - url: https://api.company.com/payments/docs
+          title: API Documentation (Swagger)
+          type: swagger
+        
+        - url: https://app.datadoghq.com/apm/service/payments-api
+          title: APM Traces
+          type: datadog
+      
+      # Dependencies
+      dependencies:
+        # Infrastructure dependencies
+        infrastructure:
+          - postgresql
+          - redis
+          - kafka
+          - stripe-api
+        
+        # Other service dependencies
+        services:
+          - user-management-api
+          - billing-api
+          - notification-service
+    
+    # ============================================
+    # Service 2: Background Worker
+    # ============================================
+    - name: payment-worker
+      title: Payment Processing Worker
+      description: Async background worker for processing payment queue, retrying failed transactions, and generating invoices
+      
+      language: Go
+      environment: production
+      repository: https://github.com/myorg/payment-worker
+      
+      tags:
+        - worker
+        - async
+        - kafka-consumer
+        - go
+      
+      links:
+        - url: https://grafana.company.com/d/payment-worker
+          title: Worker Metrics
+          type: grafana
+      
+      dependencies:
+        infrastructure:
+          - kafka
+          - postgresql
+          - redis
+        services:
+          - payments-api
+          - notification-service
+    
+    # ============================================
+    # Service 3: Billing Service
+    # ============================================
+    - name: billing-api
+      title: Billing & Subscription API
+      description: Manages subscriptions, invoicing, and recurring payments
+      
+      language: Python
+      environment: production
+      repository: https://github.com/myorg/billing-api
+      
+      tags:
+        - api
+        - billing
+        - subscriptions
+        - python
+        - fastapi
+      
+      links:
+        - url: https://grafana.company.com/d/billing-api
+          title: Grafana Dashboard
+          type: grafana
+        
+        - url: https://api.company.com/billing/docs
+          title: API Docs
+          type: swagger
+      
+      dependencies:
+        infrastructure:
+          - postgresql
+          - stripe-api
+        services:
+          - payments-api
+          - user-management-api
+          - notification-service
+    
+    # ============================================
+    # Service 4: Payment Gateway Integration
+    # ============================================
+    - name: payment-gateway-adapter
+      title: Payment Gateway Adapter
+      description: Adapter layer for multiple payment gateways (Stripe, PayPal, etc)
+      
+      language: Go
+      environment: production
+      repository: https://github.com/myorg/payment-gateway-adapter
+      
+      tags:
+        - adapter
+        - integration
+        - payment-gateway
+        - go
+      
+      links:
+        - url: https://grafana.company.com/d/gateway-adapter
+          title: Gateway Metrics
+          type: grafana
+      
+      dependencies:
+        infrastructure:
+          - redis
+          - stripe-api
+          - paypal-api
+        services:
+          - payments-api
+    
+    # ============================================
+    # Service 5: Frontend Dashboard
+    # ============================================
+    - name: payment-dashboard
+      title: Payments Admin Dashboard
+      description: Internal admin dashboard for monitoring payments and managing disputes
+      
+      language: TypeScript
+      environment: production
+      repository: https://github.com/myorg/payment-dashboard
+      
+      tags:
+        - frontend
+        - dashboard
+        - react
+        - typescript
+      
+      links:
+        - url: https://dashboard.payments.company.com
+          title: Live Dashboard
+          type: web
+      
+      dependencies:
+        services:
+          - payments-api
+          - billing-api

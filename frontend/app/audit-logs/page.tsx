@@ -31,11 +31,7 @@ export default function AuditLogsPage() {
         try {
             const data = await fetchCurrentUser();
             setCurrentUser(data.user);
-
-            // Only superadmin and lead can access
-            if (data.user.role !== 'superadmin' && data.user.role !== 'lead') {
-                router.push('/');
-            }
+            // All authenticated users can access audit logs
         } catch (error) {
             console.error('Access check failed:', error);
             router.push('/');

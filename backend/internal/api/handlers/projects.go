@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -29,6 +31,7 @@ func GetProjects(w http.ResponseWriter, r *http.Request) {
 func GetProjectByID(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 	projectRepo := &repositories.ProjectRepository{}
+	serviceRepo := &repositories.ServiceRepository{}
 	teamRepo := &repositories.TeamRepository{}
 
 	// Extract ID from URL path
@@ -38,12 +41,22 @@ func GetProjectByID(w http.ResponseWriter, r *http.Request) {
 	// Find project
 	project, err := projectRepo.FindByID(ctx, projectID)
 	if err != nil {
-		http.Error(w, "Project not found", http.StatusNotFound)
+		if err.Error() == "project not found" {
+			http.Error(w, "Project not found", http.StatusNotFound)
+		} else {
+			log.Printf("Error fetching project %s: %v", projectID, err)
+			http.Error(w, fmt.Sprintf("Failed to fetch project: %v", err), http.StatusInternalServerError)
+		}
 		return
 	}
 
-	// Get associated services (from services table)
-	services := []models.Service{} // TODO: Query from services table when implemented
+	// Get associated services
+	services, err := serviceRepo.FindByProjectID(ctx, projectID)
+	if err != nil {
+		// Log error but continue with empty services
+		log.Printf("Failed to fetch services for project %s: %v", projectID, err)
+		services = []models.Service{}
+	}
 
 	// Get team name
 	var teamName string

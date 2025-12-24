@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/portalight/backend/internal/repositories"
@@ -15,7 +16,7 @@ func GetServices(w http.ResponseWriter, r *http.Request) {
 
 	services, err := serviceRepo.GetAll(ctx)
 	if err != nil {
-		http.Error(w, "Failed to fetch services", http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Failed to fetch services: %v", err), http.StatusInternalServerError)
 		return
 	}
 

@@ -75,3 +75,11 @@ func GetUserEmail(ctx context.Context) string {
 	}
 	return ""
 }
+
+// GetUserRole returns the user role from the context
+func GetUserRole(ctx context.Context) string {
+	if val, ok := ctx.Value(UserRoleKey).(string); ok {
+		return val
+	}
+	return ""
+}

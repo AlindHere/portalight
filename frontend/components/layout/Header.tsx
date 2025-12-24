@@ -1,17 +1,61 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, Suspense } from 'react';
+import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { fetchCurrentUser } from '@/lib/api';
 import { User } from '@/lib/types';
 import styles from './Header.module.css';
 
 export default function Header() {
+    return (
+        <Suspense fallback={<header className={styles.header}><div className={styles.container}></div></header>}>
+            <HeaderContent />
+        </Suspense>
+    );
+}
+
+function HeaderContent() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const pathname = usePathname();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [showDropdown, setShowDropdown] = useState(false);
+    const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
     const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Sync search query with URL
+    useEffect(() => {
+        const q = searchParams.get('q');
+        if (q !== null) {
+            setSearchQuery(q);
+        } else {
+            setSearchQuery('');
+        }
+    }, [searchParams]);
+
+    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        setSearchQuery(value);
+
+        const params = new URLSearchParams(searchParams.toString());
+        if (value) {
+            params.set('q', value);
+        } else {
+            params.delete('q');
+        }
+
+        // If not on home page, navigate to home with search query
+        if (pathname !== '/') {
+            router.push(`/?${params.toString()}`);
+        } else {
+            // On home page, just update the URL without full navigation
+            window.history.replaceState(null, '', `?${params.toString()}`);
+            // Dispatch a custom event so the home page can listen to it if needed, 
+            // but since we'll update the home page to use useSearchParams, it will react automatically.
+            window.dispatchEvent(new Event('popstate'));
+        }
+    };
 
     useEffect(() => {
         loadCurrentUser();
@@ -58,16 +102,28 @@ export default function Header() {
                     </Link>
                 </div>
 
+                <div className={styles.center}>
+                    <div className={styles.searchBar}>
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input
+                            type="text"
+                            placeholder="Search projects and services..."
+                            value={searchQuery}
+                            onChange={handleSearch}
+                        />
+                    </div>
+                </div>
+
                 <div className={styles.right}>
                     <span className={styles.version}>v0.1.0-alpha</span>
                     <Link href="/docs" className={styles.link}>Docs</Link>
 
-                    {/* Audit Logs - only for superadmin and lead */}
-                    {(currentUser?.role === 'superadmin' || currentUser?.role === 'lead') && (
-                        <Link href="/audit-logs" className={styles.link}>
-                            Audit Logs
-                        </Link>
-                    )}
+                    {/* Audit Logs - available to all users */}
+                    <Link href="/audit-logs" className={styles.link}>
+                        Audit Logs
+                    </Link>
 
                     <Link href="/users-teams" className={styles.link}>Users & Teams</Link>
 

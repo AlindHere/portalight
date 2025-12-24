@@ -115,7 +115,11 @@ export default function ProjectAccessModal({
                                         readOnly
                                     />
                                     <div className={styles.avatar}>
-                                        {user.avatar || user.name.substring(0, 2).toUpperCase()}
+                                        {user.avatar ? (
+                                            <img src={user.avatar} alt={user.name} />
+                                        ) : (
+                                            user.name.substring(0, 2).toUpperCase()
+                                        )}
                                     </div>
                                     <div className={styles.info}>
                                         <div className={styles.name}>{user.name}</div>

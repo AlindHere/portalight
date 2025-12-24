@@ -190,3 +190,29 @@ func (r *TeamRepository) UpdateTeamMembers(ctx context.Context, teamID string, m
 
 	return tx.Commit(ctx)
 }
+
+// FindByName finds a team by name (case-insensitive)
+func (r *TeamRepository) FindByName(ctx context.Context, name string) (*models.Team, error) {
+	query := `
+		SELECT id, name, description, created_at
+		FROM teams
+		WHERE LOWER(name) = LOWER($1)
+	`
+
+	var team models.Team
+	err := database.DB.QueryRow(ctx, query, name).Scan(
+		&team.ID,
+		&team.Name,
+		&team.Description,
+		&team.CreatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil // Return nil if not found
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return &team, nil
+}

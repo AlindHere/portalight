@@ -43,7 +43,6 @@ export default function ServiceCard({ service, onClick }: ServiceCardProps) {
                         {service.environment}
                     </span>
                 </div>
-                <p className={styles.team}>{service.team}</p>
             </div>
 
             <p className={styles.description}>{service.description}</p>

@@ -14,6 +14,8 @@ frontend/.next/
 frontend/out/
 frontend/build/
 backend/bin/
+backend/main
+backend/server
 
 # IDE
 .vscode/

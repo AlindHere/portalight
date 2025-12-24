@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
+import DevPermissionsModal from '@/components/DevPermissionsModal';
 import { fetchUsers, fetchTeams, fetchCurrentUser, updateUser, updateTeamMembers, createTeam, fetchProjects, deleteTeam } from '@/lib/api';
 import { User, Team, CurrentUserResponse, Project } from '@/lib/types';
 import styles from './page.module.css';
@@ -15,6 +16,7 @@ export default function UsersTeamsPage() {
     const [projects, setProjects] = useState<Project[]>([]);
     const [loading, setLoading] = useState(true);
     const [editingUser, setEditingUser] = useState<User | null>(null);
+    const [editingPermissionsFor, setEditingPermissionsFor] = useState<User | null>(null);
     const [selectedTeam, setSelectedTeam] = useState<string>('all');
     const [creatingTeam, setCreatingTeam] = useState(false);
     const [viewingTeam, setViewingTeam] = useState<string | null>(null);
@@ -224,12 +226,23 @@ export default function UsersTeamsPage() {
                                             </td>
                                             {isAdmin && (
                                                 <td>
-                                                    <button
-                                                        className={styles.editButton}
-                                                        onClick={() => setEditingUser(user)}
-                                                    >
-                                                        Edit Teams
-                                                    </button>
+                                                    <div className={styles.actionButtons}>
+                                                        <button
+                                                            className={styles.editButton}
+                                                            onClick={() => setEditingUser(user)}
+                                                        >
+                                                            Edit Teams
+                                                        </button>
+                                                        {user.role === 'dev' && (
+                                                            <button
+                                                                className={styles.accessButton}
+                                                                onClick={() => setEditingPermissionsFor(user)}
+                                                                title="Manage provisioning permissions"
+                                                            >
+                                                                Edit Access
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             )}
                                         </tr>
@@ -391,6 +404,18 @@ export default function UsersTeamsPage() {
                         }
                     }}
                     onClose={() => setEditingUser(null)}
+                />
+            )}
+
+            {/* Dev Permissions Modal */}
+            {editingPermissionsFor && (
+                <DevPermissionsModal
+                    user={editingPermissionsFor}
+                    onClose={() => setEditingPermissionsFor(null)}
+                    onSave={() => {
+                        // Optionally refresh data or show success message
+                        setEditingPermissionsFor(null);
+                    }}
                 />
             )}
         </>

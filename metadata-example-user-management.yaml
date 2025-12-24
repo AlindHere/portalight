@@ -1,0 +1,83 @@
+apiVersion: portalight.dev/v1alpha1
+kind: ProjectCatalog
+
+metadata:
+  name: user-management
+  title: User Management Platform
+  description: User authentication, authorization, and profile management system
+  
+  tags:
+    - users
+    - auth
+    - identity
+  
+  # Team name from Portalight (case-insensitive matching)
+  owner: Security Team
+  
+  links:
+    - url: https://confluence.company.com/display/USER/User-Management
+      title: Documentation
+      type: confluence
+
+spec:
+  services:
+    - name: user-api
+      title: User Management API
+      description: Core user CRUD operations and profile management
+      language: Node.js
+      environment: production
+      repository: https://github.com/myorg/user-api
+      
+      tags:
+        - api
+        - nodejs
+        - express
+      
+      links:
+        - url: https://api.company.com/users/docs
+          title: API Documentation
+          type: swagger
+      
+      dependencies:
+        infrastructure:
+          - postgresql
+          - redis
+        services:
+          - auth-service
+    
+    - name: auth-service
+      title: Authentication Service
+      description: OAuth 2.0 authentication and JWT token management
+      language: Go
+      environment: production
+      repository: https://github.com/myorg/auth-service
+      
+      tags:
+        - auth
+        - oauth
+        - jwt
+        - go
+      
+      dependencies:
+        infrastructure:
+          - postgresql
+          - redis
+        services:
+          - user-api
+    
+    - name: profile-ui
+      title: User Profile UI
+      description: Frontend for user profile management
+      language: TypeScript
+      environment: production
+      repository: https://github.com/myorg/profile-ui
+      
+      tags:
+        - frontend
+        - react
+        - typescript
+      
+      dependencies:
+        services:
+          - user-api
+          - auth-service

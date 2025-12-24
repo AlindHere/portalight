@@ -1,4 +1,4 @@
-import { Service, Secret, Stats } from './types';
+import { Service, Secret, Stats, Resource } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -16,14 +16,25 @@ function getHeaders(additionalHeaders: Record<string, string> = {}): HeadersInit
     return headers;
 }
 
+async function handleResponse(response: Response, errorMessage: string = 'Request failed') {
+    if (response.status === 401) {
+        if (typeof window !== 'undefined') {
+            localStorage.removeItem('token');
+            window.location.href = '/login';
+        }
+        throw new Error('Unauthorized');
+    }
+    if (!response.ok) {
+        throw new Error(errorMessage);
+    }
+    return response.json();
+}
+
 export async function fetchServices(): Promise<Service[]> {
     const response = await fetch(`${API_BASE_URL}/api/v1/services`, {
         headers: getHeaders(),
     });
-    if (!response.ok) {
-        throw new Error('Failed to fetch services');
-    }
-    return response.json();
+    return handleResponse(response, 'Failed to fetch services');
 }
 
 export async function createService(service: Partial<Service>): Promise<Service> {
@@ -48,16 +59,247 @@ export async function fetchSecrets(): Promise<Secret[]> {
     return response.json();
 }
 
-export async function provisionResource(request: any): Promise<any> {
+// AWS Credentials Management
+export async function fetchAWSCredentials(): Promise<Secret[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/credentials`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch AWS credentials');
+}
+
+export async function createAWSCredential(
+    name: string,
+    accountId: string,
+    region: string,
+    accessKeyId: string,
+    secretAccessKey: string,
+    accessType: 'read' | 'write' = 'write'
+): Promise<Secret> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/credentials`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            name,
+            provider: 'AWS',
+            account_id: accountId,
+            region,
+            access_type: accessType,
+            access_key_id: accessKeyId,
+            secret_access_key: secretAccessKey,
+        }),
+    });
+    if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to create AWS credential');
+    }
+    return response.json();
+}
+
+export async function deleteAWSCredential(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/credentials/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to delete AWS credential');
+    }
+}
+
+// Dev Provisioning Permissions
+export interface UserProvisioningPermissions {
+    user_id: string;
+    allowed_types: string[];
+    s3_enabled: boolean;
+    sqs_enabled: boolean;
+    sns_enabled: boolean;
+}
+
+export async function fetchDevProvisioningPermissions(userId: string): Promise<UserProvisioningPermissions> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/provisioning-permissions`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch provisioning permissions');
+}
+
+export async function updateDevProvisioningPermissions(
+    userId: string,
+    permissions: { s3_enabled: boolean; sqs_enabled: boolean; sns_enabled: boolean }
+): Promise<UserProvisioningPermissions> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}/provisioning-permissions`, {
+        method: 'PUT',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(permissions),
+    });
+    return handleResponse(response, 'Failed to update provisioning permissions');
+}
+
+export async function createResource(request: any): Promise<Resource> {
     const response = await fetch(`${API_BASE_URL}/api/v1/provision`, {
         method: 'POST',
         headers: getHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(request),
     });
     if (!response.ok) {
-        throw new Error('Failed to provision resource');
+        const errorText = await response.text();
+        throw new Error(errorText || 'Failed to provision resource');
     }
     return response.json();
+}
+
+export async function fetchProjectResources(projectId: string): Promise<Resource[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${projectId}/resources`, {
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch project resources');
+    }
+    return response.json();
+}
+
+// AWS Resource Discovery
+export interface DiscoveredResource {
+    arn: string;
+    type: string; // s3, sqs, sns, rds, lambda
+    name: string;
+    region: string;
+    status: string;
+    metadata: Record<string, any>;
+    discovered_at: string;
+}
+
+export interface DiscoveryResponse {
+    resources: DiscoveredResource[];
+    region: string;
+    count: number;
+}
+
+export async function discoverResources(
+    secretId: string,
+    region?: string,
+    types?: string[]
+): Promise<DiscoveryResponse> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/discover`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            secret_id: secretId,
+            region: region,
+            types: types,
+        }),
+    });
+    return handleResponse(response, 'Failed to discover resources');
+}
+
+// Resource Metrics
+export interface MetricDataPoint {
+    timestamp: string;
+    value: number;
+}
+
+export interface ResourceMetrics {
+    resource_arn: string;
+    resource_type: string;
+    period: string;
+    metrics: Record<string, MetricDataPoint[]>;
+    metadata?: Record<string, string>;
+    fetched_at: string;
+}
+
+export async function fetchResourceMetrics(
+    secretId: string,
+    resourceType: string,
+    resourceName: string,
+    region?: string,
+    period: string = '24h'
+): Promise<ResourceMetrics> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/resources/metrics`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            secret_id: secretId,
+            resource_type: resourceType,
+            resource_name: resourceName,
+            region: region,
+            period: period,
+        }),
+    });
+    return handleResponse(response, 'Failed to fetch resource metrics');
+}
+
+// Discovered Resources & Sync
+export interface DiscoveredResourceDB {
+    id: string;
+    project_id: string;
+    secret_id: string;
+    arn: string;
+    resource_type: string;
+    name: string;
+    region: string;
+    status: 'active' | 'deleted' | 'unknown';
+    metadata: Record<string, any>;
+    last_synced_at: string | null;
+    discovered_at: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SyncResult {
+    project_id: string;
+    secret_id: string;
+    region: string;
+    resources_found: number;
+    resources_added: number;
+    resources_active: number;
+    resources_deleted: number;
+    synced_at: string;
+    error?: string;
+}
+
+export async function syncProjectResources(
+    projectId: string,
+    secretId: string,
+    region?: string
+): Promise<SyncResult> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/resources/sync`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            project_id: projectId,
+            secret_id: secretId,
+            region: region,
+        }),
+    });
+    return handleResponse(response, 'Failed to sync resources');
+}
+
+export async function associateResources(
+    projectId: string,
+    secretId: string,
+    resources: DiscoveredResource[]
+): Promise<{ success: boolean; resources_added: number }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/resources/associate`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            project_id: projectId,
+            secret_id: secretId,
+            resources: resources.map(r => ({
+                arn: r.arn,
+                resource_type: r.type,
+                name: r.name,
+                region: r.region,
+                metadata: r.metadata,
+            })),
+        }),
+    });
+    return handleResponse(response, 'Failed to associate resources');
+}
+
+export async function fetchDiscoveredResources(projectId: string): Promise<DiscoveredResourceDB[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/resources/discovered?project_id=${projectId}`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch discovered resources');
 }
 
 export function calculateStats(services: Service[]): Stats {
@@ -74,16 +316,14 @@ export async function fetchCurrentUser(): Promise<import('./types').CurrentUserR
     const response = await fetch(`${API_BASE_URL}/api/v1/users/current`, {
         headers: getHeaders(),
     });
-    if (!response.ok) throw new Error('Failed to fetch current user');
-    return response.json();
+    return handleResponse(response, 'Failed to fetch current user');
 }
 
 export async function fetchUsers(): Promise<import('./types').User[]> {
     const response = await fetch(`${API_BASE_URL}/api/v1/users`, {
         headers: getHeaders(),
     });
-    if (!response.ok) throw new Error('Failed to fetch users');
-    return response.json();
+    return handleResponse(response, 'Failed to fetch users');
 }
 
 export async function createUser(user: Partial<import('./types').User>): Promise<import('./types').User> {
@@ -119,8 +359,7 @@ export async function fetchTeams(): Promise<import('./types').Team[]> {
     const response = await fetch(`${API_BASE_URL}/api/v1/teams`, {
         headers: getHeaders(),
     });
-    if (!response.ok) throw new Error('Failed to fetch teams');
-    return response.json();
+    return handleResponse(response, 'Failed to fetch teams');
 }
 
 export async function createTeam(name: string, description: string): Promise<import('./types').Team> {
@@ -156,8 +395,7 @@ export async function fetchProjects(): Promise<import('./types').Project[]> {
     const response = await fetch(`${API_BASE_URL}/api/v1/projects`, {
         headers: getHeaders(),
     });
-    if (!response.ok) throw new Error('Failed to fetch projects');
-    return response.json();
+    return handleResponse(response, 'Failed to fetch projects');
 }
 
 export async function fetchProjectById(id: string): Promise<import('./types').ProjectWithServices> {
@@ -176,6 +414,19 @@ export async function updateProjectAccess(projectId: string, teamIds: string[], 
     if (!response.ok) throw new Error('Failed to update project access');
     return response.json();
 }
+
+export async function syncProject(id: string): Promise<{ success: boolean, message: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}/sync`, {
+        method: 'POST',
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to sync project');
+    }
+    return response.json();
+}
+
 export async function updateProject(id: string, data: Partial<import('./types').Project>): Promise<import('./types').Project> {
     const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
         method: 'PUT',
@@ -208,4 +459,62 @@ export async function createAuditLog(log: Partial<import('./types').AuditLog>): 
     });
     if (!response.ok) throw new Error('Failed to create audit log');
     return response.json();
+}
+
+// GitHub Integration APIs
+export async function fetchGitHubConfig() {
+    const response = await fetch(`${API_BASE_URL}/api/v1/catalog/config`, {
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch GitHub config');
+    }
+    return response.json();
+}
+
+export async function updateGitHubConfig(config: any) {
+    const response = await fetch(`${API_BASE_URL}/api/v1/catalog/config`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(config),
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to update GitHub config: ${error}`);
+    }
+    return response.json();
+}
+
+export async function fetchCatalogScan() {
+    const response = await fetch(`${API_BASE_URL}/api/v1/catalog/scan`, {
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to scan catalog: ${error}`);
+    }
+    return response.json();
+}
+
+export async function syncCatalog(mappings: Array<{ file: string, team_id: string }>) {
+    console.log('[API] syncCatalog called with:', mappings);
+    console.log('[API] Sending to URL:', `${API_BASE_URL}/api/v1/catalog/sync`);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/catalog/sync`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ mappings }),
+    });
+
+    console.log('[API] Response status:', response.status);
+    console.log('[API] Response ok:', response.ok);
+
+    if (!response.ok) {
+        const error = await response.text();
+        console.error('[API] Error response:', error);
+        throw new Error(`Failed to sync catalog: ${error}`);
+    }
+    const result = await response.json();
+    console.log('[API] Success response:', result);
+    return result;
 }

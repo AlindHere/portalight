@@ -92,7 +92,12 @@ export default function ServiceDetailPage() {
                                 </svg>
                             </div>
                             <div>
-                                <h1 className={styles.title}>{service.name}</h1>
+                                <div className="flex items-center gap-2">
+                                    <h1 className={styles.title}>{service.name}</h1>
+                                    {service.auto_synced && (
+                                        <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded border border-blue-200" title="Managed by GitHub Catalog">Synced</span>
+                                    )}
+                                </div>
                                 <p className={styles.subtitle}>{service.team}</p>
                             </div>
                         </div>

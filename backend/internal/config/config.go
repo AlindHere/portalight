@@ -17,6 +17,7 @@ type Config struct {
 	GithubClientSecret string
 	GithubAllowedOrg   string
 	JWTSecret          string
+	EncryptionKey      string
 }
 
 func Load() *Config {
@@ -35,6 +36,7 @@ func Load() *Config {
 		GithubClientSecret: getEnv("GITHUB_CLIENT_SECRET", ""),
 		GithubAllowedOrg:   getEnv("GITHUB_ALLOWED_ORG", ""),
 		JWTSecret:          getEnv("JWT_SECRET", "secret-key-change-me"),
+		EncryptionKey:      getEnv("ENCRYPTION_KEY", ""),
 	}
 }
 

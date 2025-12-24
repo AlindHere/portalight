@@ -71,13 +71,15 @@ func (r *ProjectRepository) GetAll(ctx context.Context) ([]models.Project, error
 // FindByID finds a project by ID
 func (r *ProjectRepository) FindByID(ctx context.Context, id string) (*models.Project, error) {
 	query := `
-		SELECT id, name, description, confluence_url, avatar, owner_team_id, created_at, updated_at
+		SELECT id, name, description, confluence_url, avatar, owner_team_id, secret_id,
+		       catalog_file_path, auto_synced, sync_status,
+		       created_at, updated_at
 		FROM projects
 		WHERE id = $1::uuid
 	`
 
 	var project models.Project
-	var confluenceURL, avatar, ownerTeamID *string
+	var confluenceURL, avatar, ownerTeamID, secretID, catalogFilePath, syncStatus *string
 
 	err := database.DB.QueryRow(ctx, query, id).Scan(
 		&project.ID,
@@ -86,6 +88,10 @@ func (r *ProjectRepository) FindByID(ctx context.Context, id string) (*models.Pr
 		&confluenceURL,
 		&avatar,
 		&ownerTeamID,
+		&secretID,
+		&catalogFilePath,
+		&project.AutoSynced,
+		&syncStatus,
 		&project.CreatedAt,
 		&project.UpdatedAt,
 	)
@@ -105,6 +111,15 @@ func (r *ProjectRepository) FindByID(ctx context.Context, id string) (*models.Pr
 	}
 	if ownerTeamID != nil {
 		project.OwnerTeamID = *ownerTeamID
+	}
+	if secretID != nil {
+		project.SecretID = *secretID
+	}
+	if catalogFilePath != nil {
+		project.CatalogFilePath = *catalogFilePath
+	}
+	if syncStatus != nil {
+		project.SyncStatus = *syncStatus
 	}
 
 	// Load team IDs and user IDs
@@ -126,11 +141,11 @@ func (r *ProjectRepository) Create(ctx context.Context, project *models.Project)
 	project.UpdatedAt = time.Now()
 
 	query := `
-		INSERT INTO projects (id, name, description, confluence_url, avatar, owner_team_id, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		INSERT INTO projects (id, name, description, confluence_url, avatar, owner_team_id, secret_id, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`
 
-	var confluenceURL, avatar, ownerTeamID *string
+	var confluenceURL, avatar, ownerTeamID, secretID *string
 	if project.ConfluenceURL != "" {
 		confluenceURL = &project.ConfluenceURL
 	}
@@ -140,6 +155,9 @@ func (r *ProjectRepository) Create(ctx context.Context, project *models.Project)
 	if project.OwnerTeamID != "" {
 		ownerTeamID = &project.OwnerTeamID
 	}
+	if project.SecretID != "" {
+		secretID = &project.SecretID
+	}
 
 	_, err := database.DB.Exec(ctx, query,
 		project.ID,
@@ -148,6 +166,7 @@ func (r *ProjectRepository) Create(ctx context.Context, project *models.Project)
 		confluenceURL,
 		avatar,
 		ownerTeamID,
+		secretID,
 		project.CreatedAt,
 		project.UpdatedAt,
 	)
@@ -161,11 +180,11 @@ func (r *ProjectRepository) Update(ctx context.Context, project *models.Project)
 
 	query := `
 		UPDATE projects
-		SET name = $1, description = $2, confluence_url = $3, avatar = $4, owner_team_id = $5, updated_at = $6
-		WHERE id = $7::uuid
+		SET name = $1, description = $2, confluence_url = $3, avatar = $4, owner_team_id = $5, secret_id = $6, updated_at = $7
+		WHERE id = $8::uuid
 	`
 
-	var confluenceURL, avatar, ownerTeamID *string
+	var confluenceURL, avatar, ownerTeamID, secretID *string
 	if project.ConfluenceURL != "" {
 		confluenceURL = &project.ConfluenceURL
 	}
@@ -175,6 +194,9 @@ func (r *ProjectRepository) Update(ctx context.Context, project *models.Project)
 	if project.OwnerTeamID != "" {
 		ownerTeamID = &project.OwnerTeamID
 	}
+	if project.SecretID != "" {
+		secretID = &project.SecretID
+	}
 
 	_, err := database.DB.Exec(ctx, query,
 		project.Name,
@@ -182,6 +204,7 @@ func (r *ProjectRepository) Update(ctx context.Context, project *models.Project)
 		confluenceURL,
 		avatar,
 		ownerTeamID,
+		secretID,
 		project.UpdatedAt,
 		project.ID,
 	)
@@ -263,4 +286,132 @@ func (r *ProjectRepository) UpdateProjectAccess(ctx context.Context, projectID s
 	}
 
 	return tx.Commit(ctx)
+}
+
+// FindByCatalogPath finds a project by its catalog file path
+func (r *ProjectRepository) FindByCatalogPath(ctx context.Context, path string) (*models.Project, error) {
+	query := `
+		SELECT id, name, description, confluence_url, avatar, owner_team_id, 
+		       catalog_file_path, catalog_metadata, last_synced_at, sync_status, sync_error, auto_synced,
+		       created_at, updated_at
+		FROM projects
+		WHERE catalog_file_path = $1
+	`
+
+	var project models.Project
+	var confluenceURL, avatar, ownerTeamID *string
+	var catalogFilePath, syncStatus, syncError *string
+	var lastSyncedAt *time.Time
+
+	err := database.DB.QueryRow(ctx, query, path).Scan(
+		&project.ID,
+		&project.Name,
+		&project.Description,
+		&confluenceURL,
+		&avatar,
+		&ownerTeamID,
+		&catalogFilePath,
+		&project.CatalogMetadata,
+		&lastSyncedAt,
+		&syncStatus,
+		&syncError,
+		&project.AutoSynced,
+		&project.CreatedAt,
+		&project.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, nil // Return nil if not found, not error
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if confluenceURL != nil {
+		project.ConfluenceURL = *confluenceURL
+	}
+	if avatar != nil {
+		project.Avatar = *avatar
+	}
+	if ownerTeamID != nil {
+		project.OwnerTeamID = *ownerTeamID
+	}
+	if catalogFilePath != nil {
+		project.CatalogFilePath = *catalogFilePath
+	}
+	if syncStatus != nil {
+		project.SyncStatus = *syncStatus
+	}
+	if syncError != nil {
+		project.SyncError = *syncError
+	}
+	project.LastSyncedAt = lastSyncedAt
+
+	return &project, nil
+}
+
+// UpsertFromCatalog creates or updates a project from catalog data
+func (r *ProjectRepository) UpsertFromCatalog(ctx context.Context, project *models.Project) error {
+	if project.ID == "" {
+		project.ID = uuid.New().String()
+	}
+	now := time.Now()
+	if project.CreatedAt.IsZero() {
+		project.CreatedAt = now
+	}
+	project.UpdatedAt = now
+	project.LastSyncedAt = &now
+
+	query := `
+		INSERT INTO projects (
+			id, name, description, confluence_url, avatar, owner_team_id,
+			catalog_file_path, catalog_metadata, last_synced_at, sync_status, sync_error, auto_synced,
+			created_at, updated_at
+		) VALUES (
+			$1, $2, $3, $4, $5, $6,
+			$7, $8, $9, $10, $11, $12,
+			$13, $14
+		)
+		ON CONFLICT (catalog_file_path) DO UPDATE SET
+			name = EXCLUDED.name,
+			description = EXCLUDED.description,
+			owner_team_id = EXCLUDED.owner_team_id,
+			catalog_metadata = EXCLUDED.catalog_metadata,
+			last_synced_at = EXCLUDED.last_synced_at,
+			sync_status = EXCLUDED.sync_status,
+			sync_error = EXCLUDED.sync_error,
+			auto_synced = EXCLUDED.auto_synced,
+			updated_at = EXCLUDED.updated_at
+		RETURNING id
+	`
+
+	var confluenceURL, avatar, ownerTeamID *string
+	if project.ConfluenceURL != "" {
+		confluenceURL = &project.ConfluenceURL
+	}
+	if project.Avatar != "" {
+		avatar = &project.Avatar
+	}
+	if project.OwnerTeamID != "" {
+		ownerTeamID = &project.OwnerTeamID
+	}
+
+	err := database.DB.QueryRow(ctx, query,
+		project.ID,
+		project.Name,
+		project.Description,
+		confluenceURL,
+		avatar,
+		ownerTeamID,
+		project.CatalogFilePath,
+		project.CatalogMetadata,
+		project.LastSyncedAt,
+		project.SyncStatus,
+		project.SyncError,
+		project.AutoSynced,
+		project.CreatedAt,
+		project.UpdatedAt,
+	).Scan(&project.ID)
+
+	return err
 }

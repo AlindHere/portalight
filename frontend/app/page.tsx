@@ -1,30 +1,37 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import StatsCard from '@/components/dashboard/StatsCard';
 import RegisterModal from '@/components/modals/RegisterModal';
 import ProjectAccessModal from '@/components/ProjectAccessModal';
-import { fetchProjects, fetchTeams, fetchServices, fetchUsers, fetchCurrentUser, updateProjectAccess } from '@/lib/api';
+import { fetchProjects, fetchTeams, fetchServices, fetchUsers, fetchCurrentUser, updateProjectAccess, fetchDevProvisioningPermissions } from '@/lib/api';
 import { Project, Team, Service, User } from '@/lib/types';
 import styles from './page.module.css';
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [services, setServices] = useState<Service[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [loading, setLoading] = useState(true);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [managingAccessFor, setManagingAccessFor] = useState<string | null>(null);
+  const [hasProvisioningAccess, setHasProvisioningAccess] = useState(false);
 
   useEffect(() => {
     loadData();
   }, []);
+
+  // Sync search query with URL
+  useEffect(() => {
+    setSearchQuery(searchParams.get('q') || '');
+  }, [searchParams]);
 
   const loadData = async () => {
     try {
@@ -40,6 +47,21 @@ export default function Home() {
       setServices(servicesData || []);
       setUsers(usersData || []);
       setCurrentUser(currentUserData.user);
+
+      // If user is a dev, check their provisioning permissions
+      if (currentUserData.user?.role === 'dev') {
+        try {
+          const permissions = await fetchDevProvisioningPermissions(currentUserData.user.id);
+          const hasAccess = permissions.s3_enabled || permissions.sqs_enabled || permissions.sns_enabled;
+          setHasProvisioningAccess(hasAccess);
+        } catch {
+          // No permissions yet - that's okay
+          setHasProvisioningAccess(false);
+        }
+      } else {
+        // Lead and superadmin always have access
+        setHasProvisioningAccess(true);
+      }
     } catch (error) {
       // Check if user has a token
       if (typeof window !== 'undefined') {
@@ -94,67 +116,62 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.container}>
           {/* Hero Section */}
-          <div className={styles.hero}>
-            <div className={styles.heroContent}>
-              <h1 className={styles.title}>Internal Developer Portal</h1>
-              <p className={styles.subtitle}>
-                Centralize your services, documentation, and cloud provisioning
-              </p>
-              <div className={styles.actions}>
-                <button className={styles.primaryButton} onClick={() => setShowRegisterModal(true)}>
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  Register New Project
-                </button>
-                <button className={styles.secondaryButton} onClick={() => router.push('/provision')}>
-                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                  </svg>
-                  Provision Resources
-                </button>
+          {!searchQuery && (
+            <div className={styles.hero}>
+              <div className={styles.heroContent}>
+                <h1 className={styles.title}>Internal Developer Portal</h1>
+                <p className={styles.subtitle}>
+                  Centralize your services, documentation, and cloud provisioning
+                </p>
+                <div className={styles.actions}>
+                  {/* Register button - only for lead and superadmin */}
+                  {currentUser?.role !== 'dev' && (
+                    <button className={styles.primaryButton} onClick={() => setShowRegisterModal(true)}>
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Register New Project
+                    </button>
+                  )}
+                  {/* Provision button - for lead/superadmin OR dev users with permissions */}
+                  {(currentUser?.role !== 'dev' || hasProvisioningAccess) && (
+                    <button className={styles.secondaryButton} onClick={() => router.push('/provision')}>
+                      <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                      </svg>
+                      Provision Resources
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Stats Grid */}
-          <div className={styles.statsGrid}>
-            <StatsCard
-              title="Total Projects"
-              value={stats.totalServices.toString()}
-              icon="📦"
-            />
-            <StatsCard
-              title="Active Projects"
-              value={stats.productionServices.toString()}
-              icon="✅"
-            />
-            <StatsCard
-              title="Avg Uptime"
-              value={stats.avgUptime}
-              icon="⏱️"
-            />
-            <StatsCard
-              title="Teams"
-              value={stats.totalOwners.toString()}
-              icon="👥"
-            />
-          </div>
-
-          {/* Search Bar */}
-          <div className={styles.searchSection}>
-            <div className={styles.searchBar}>
-              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text"
-                placeholder="Search projects and services..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+          {!searchQuery && (
+            <div className={styles.statsGrid}>
+              <StatsCard
+                title="Total Projects"
+                value={stats.totalServices.toString()}
+                icon="📦"
+              />
+              <StatsCard
+                title="Active Projects"
+                value={stats.productionServices.toString()}
+                icon="✅"
+              />
+              <StatsCard
+                title="Avg Uptime"
+                value={stats.avgUptime}
+                icon="⏱️"
+              />
+              <StatsCard
+                title="Teams"
+                value={stats.totalOwners.toString()}
+                icon="👥"
               />
             </div>
-          </div>
+          )}
 
           {/* Projects Section */}
           {!searchQuery && (
@@ -196,7 +213,10 @@ export default function Home() {
                         </div>
                         <div className={styles.projectFooter}>
                           <span className={styles.teamBadge}>
-                            📊 {getTeamName(project.owner_team_id)}
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '0.875rem', height: '0.875rem' }}>
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            {getTeamName(project.owner_team_id)}
                           </span>
                           {project.confluence_url && (
                             <span className={styles.hasDoc}>📚 Docs</span>
@@ -227,6 +247,18 @@ export default function Home() {
           {/* Search Results */}
           {searchQuery && (
             <div className={styles.searchResults}>
+              <div className={styles.searchHeader}>
+                <div className={styles.searchTitle}>
+                  <h1>Search Results</h1>
+                  <p>Showing results for "{searchQuery}"</p>
+                </div>
+                <button className={styles.clearSearch} onClick={() => router.push('/')}>
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Clear Search
+                </button>
+              </div>
               {/* Projects Results */}
               {filteredProjects.length > 0 && (
                 <div className={styles.resultsSection}>
@@ -238,32 +270,39 @@ export default function Home() {
                       <div
                         key={project.id}
                         className={styles.projectCard}
-                        onClick={() => router.push(`/projects/${project.id}`)}
                       >
-                        <div className={styles.projectHeader}>
-                          <div className={styles.projectIcon}>
-                            {project.avatar ? (
-                              <img
-                                src={project.avatar}
-                                alt={project.name}
-                                className={styles.projectAvatar}
-                              />
-                            ) : (
-                              project.name.substring(0, 1)
+                        <div
+                          className={styles.projectCardContent}
+                          onClick={() => router.push(`/projects/${project.id}`)}
+                        >
+                          <div className={styles.projectHeader}>
+                            <div className={styles.projectIcon}>
+                              {project.avatar ? (
+                                <img
+                                  src={project.avatar}
+                                  alt={project.name}
+                                  className={styles.projectAvatar}
+                                />
+                              ) : (
+                                project.name.substring(0, 1)
+                              )}
+                            </div>
+                            <div className={styles.projectInfo}>
+                              <h3>{project.name}</h3>
+                              <p>{project.description}</p>
+                            </div>
+                          </div>
+                          <div className={styles.projectFooter}>
+                            <span className={styles.teamBadge}>
+                              <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '0.875rem', height: '0.875rem' }}>
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                              </svg>
+                              {getTeamName(project.owner_team_id)}
+                            </span>
+                            {project.confluence_url && (
+                              <span className={styles.hasDoc}>📚 Docs</span>
                             )}
                           </div>
-                          <div className={styles.projectInfo}>
-                            <h3>{project.name}</h3>
-                            <p>{project.description}</p>
-                          </div>
-                        </div>
-                        <div className={styles.projectFooter}>
-                          <span className={styles.teamBadge}>
-                            📊 {getTeamName(project.owner_team_id)}
-                          </span>
-                          {project.confluence_url && (
-                            <span className={styles.hasDoc}>📚 Docs</span>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -293,7 +332,6 @@ export default function Home() {
                         <p className={styles.serviceDescription}>{service.description}</p>
                         <div className={styles.serviceMeta}>
                           <span className={styles.language}>{service.language}</span>
-                          <span className={styles.team}>{service.team}</span>
                         </div>
                       </div>
                     ))}
@@ -336,5 +374,13 @@ export default function Home() {
         />
       )}
     </>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <HomeContent />
+    </Suspense>
   );
 }
