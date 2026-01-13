@@ -1,4 +1,4 @@
-import { Service, Secret, Stats, Resource } from './types';
+import { Service, ServiceLink, ServiceResourceMapping, Secret, Stats, Resource } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -47,6 +47,83 @@ export async function createService(service: Partial<Service>): Promise<Service>
         throw new Error('Failed to create service');
     }
     return response.json();
+}
+
+// Fetch a single service with links and mapped resources
+export async function fetchServiceById(serviceId: string): Promise<Service> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch service');
+}
+
+// Update a service (owner, etc.)
+export async function updateService(serviceId: string, updates: { owner?: string }): Promise<Service> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}`, {
+        method: 'PATCH',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(updates),
+    });
+    return handleResponse(response, 'Failed to update service');
+}
+
+// Service Links
+export async function fetchServiceLinks(serviceId: string): Promise<ServiceLink[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/links`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch service links');
+}
+
+export async function addServiceLink(serviceId: string, label: string, url: string, icon?: string): Promise<ServiceLink> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/links`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ label, url, icon }),
+    });
+    return handleResponse(response, 'Failed to add link');
+}
+
+export async function updateServiceLink(serviceId: string, linkId: string, label: string, url: string, icon?: string): Promise<ServiceLink> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/links/${linkId}`, {
+        method: 'PUT',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ label, url, icon }),
+    });
+    return handleResponse(response, 'Failed to update link');
+}
+
+export async function deleteServiceLink(serviceId: string, linkId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/links/${linkId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to delete link');
+}
+
+// Service Resource Mappings
+export async function fetchServiceResources(serviceId: string): Promise<ServiceResourceMapping[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/resources`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch service resources');
+}
+
+export async function mapResourcesToService(serviceId: string, resourceIds: string[]): Promise<{ success: boolean; mapped: number }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/resources`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ resource_ids: resourceIds }),
+    });
+    return handleResponse(response, 'Failed to map resources');
+}
+
+export async function unmapResourceFromService(serviceId: string, resourceId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/services/${serviceId}/resources/${resourceId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to unmap resource');
 }
 
 export async function fetchSecrets(): Promise<Secret[]> {
@@ -302,6 +379,14 @@ export async function fetchDiscoveredResources(projectId: string): Promise<Disco
     return handleResponse(response, 'Failed to fetch discovered resources');
 }
 
+export async function removeDiscoveredResource(resourceId: string): Promise<{ success: boolean; message: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/resources/discovered/${resourceId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to remove resource');
+}
+
 export function calculateStats(services: Service[]): Stats {
     return {
         totalServices: services.length,
@@ -425,6 +510,14 @@ export async function syncProject(id: string): Promise<{ success: boolean, messa
         throw new Error(error || 'Failed to sync project');
     }
     return response.json();
+}
+
+export async function deleteProject(id: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/projects/${id}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error('Failed to delete project');
 }
 
 export async function updateProject(id: string, data: Partial<import('./types').Project>): Promise<import('./types').Project> {

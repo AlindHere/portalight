@@ -2,6 +2,7 @@ export interface Service {
     id: string;
     name: string;
     team: string;
+    team_name?: string;
     project_id?: string;
     description: string;
     environment: 'Production' | 'Staging' | 'Experimental';
@@ -11,11 +12,39 @@ export interface Service {
     owner: string;
     grafana_url?: string;
     confluence_url?: string;
+    argocd_app_name?: string;
+    argocd_url?: string;
+    loki_url?: string;
+    loki_labels?: Record<string, string>;
     catalog_source?: string;
     auto_synced?: boolean;
     catalog_metadata?: any;
     created_at: string;
     updated_at: string;
+    // Joined data
+    links?: ServiceLink[];
+    mapped_resources?: ServiceResourceMapping[];
+}
+
+export interface ServiceLink {
+    id: string;
+    service_id: string;
+    label: string;
+    url: string;
+    icon?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface ServiceResourceMapping {
+    id: string;
+    service_id: string;
+    discovered_resource_id: string;
+    created_at: string;
+    resource_name?: string;
+    resource_type?: string;
+    resource_arn?: string;
+    region?: string;
 }
 
 
@@ -68,6 +97,8 @@ export interface Stats {
 }
 
 // User and Team Management
+export type Role = 'superadmin' | 'lead' | 'dev';
+
 export interface User {
     id: string;
     name: string;

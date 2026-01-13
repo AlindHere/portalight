@@ -6,7 +6,8 @@ import Header from '@/components/layout/Header';
 import ProjectEditModal from '@/components/ProjectEditModal';
 import ProjectAccessModal from '@/components/ProjectAccessModal';
 import ResourceDiscoveryModal from '@/components/ResourceDiscoveryModal';
-import { fetchProjectById, fetchCurrentUser, updateProject, fetchTeams, fetchUsers, updateProjectAccess, syncProject, fetchProjectResources, fetchDiscoveredResources, syncProjectResources, fetchAWSCredentials, DiscoveredResource, DiscoveredResourceDB } from '@/lib/api';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import { fetchProjectById, fetchCurrentUser, updateProject, fetchTeams, fetchUsers, updateProjectAccess, syncProject, fetchProjectResources, fetchDiscoveredResources, syncProjectResources, fetchAWSCredentials, removeDiscoveredResource, DiscoveredResource, DiscoveredResourceDB, deleteProject } from '@/lib/api';
 import { ProjectWithServices, User, Team, Project, Resource, Secret } from '@/lib/types';
 import styles from './page.module.css';
 import CustomDropdown from '@/components/ui/CustomDropdown';
@@ -36,6 +37,19 @@ export default function ProjectDetailPage() {
     const [showDiscoveryModal, setShowDiscoveryModal] = useState(false);
     const [activeTab, setActiveTab] = useState<'resources' | 'services'>(initialTab);
     const [resourceFilter, setResourceFilter] = useState<string>('all');
+
+    // Confirmation modal state
+    const [confirmModal, setConfirmModal] = useState<{
+        isOpen: boolean;
+        resourceId: string;
+        resourceName: string;
+    }>({ isOpen: false, resourceId: '', resourceName: '' });
+    const [removing, setRemoving] = useState(false);
+
+    // Delete project modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmName, setDeleteConfirmName] = useState('');
+    const [deleting, setDeleting] = useState(false);
 
     // Update URL when tab changes
     const handleTabChange = (tab: 'resources' | 'services') => {
@@ -92,6 +106,20 @@ export default function ProjectDetailPage() {
         } catch (error) {
             console.error('Failed to update project:', error);
             alert('Failed to update project');
+        }
+    };
+
+    const handleDeleteProject = async () => {
+        if (!project || deleteConfirmName !== project.name) return;
+
+        setDeleting(true);
+        try {
+            await deleteProject(project.id);
+            router.push('/');
+        } catch (error) {
+            console.error('Failed to delete project:', error);
+            alert('Failed to delete project');
+            setDeleting(false);
         }
     };
 
@@ -159,6 +187,28 @@ export default function ProjectDetailPage() {
             setTimeout(() => setSyncMessage(null), 5000);
         } finally {
             setResourceSyncing(false);
+        }
+    };
+
+    const handleRemoveResource = (e: React.MouseEvent, resourceId: string, resourceName: string) => {
+        e.stopPropagation(); // Prevent card click navigation
+        setConfirmModal({ isOpen: true, resourceId, resourceName });
+    };
+
+    const confirmRemoveResource = async () => {
+        setRemoving(true);
+        try {
+            await removeDiscoveredResource(confirmModal.resourceId);
+            setSyncMessage({ type: 'success', text: `Removed ${confirmModal.resourceName} from project` });
+            setConfirmModal({ isOpen: false, resourceId: '', resourceName: '' });
+            await loadData(); // Refresh list
+            setTimeout(() => setSyncMessage(null), 3000);
+        } catch (error: any) {
+            console.error('Failed to remove resource:', error);
+            setSyncMessage({ type: 'error', text: error.message || 'Failed to remove resource' });
+            setTimeout(() => setSyncMessage(null), 5000);
+        } finally {
+            setRemoving(false);
         }
     };
 
@@ -293,6 +343,29 @@ export default function ProjectDetailPage() {
 
                             {isAdmin && (
                                 <div className={styles.adminActions}>
+                                    <button
+                                        className={styles.deleteButton}
+                                        onClick={() => setShowDeleteModal(true)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            padding: '0.5rem 1rem',
+                                            background: '#fee2e2',
+                                            color: '#dc2626',
+                                            border: '1px solid #fecaca',
+                                            borderRadius: '0.5rem',
+                                            fontSize: '0.875rem',
+                                            fontWeight: 500,
+                                            cursor: 'pointer',
+                                            marginRight: '0.75rem',
+                                        }}
+                                    >
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.125rem', height: '1.125rem' }}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                        Delete Project
+                                    </button>
                                     <button
                                         className={styles.editButton}
                                         onClick={() => setIsEditingProject(true)}
@@ -452,6 +525,17 @@ export default function ProjectDetailPage() {
                                                         Discovered {new Date(resource.discovered_at).toLocaleDateString()}
                                                     </span>
                                                 </div>
+                                                {isAdmin && (
+                                                    <button
+                                                        onClick={(e) => handleRemoveResource(e, resource.id, resource.name)}
+                                                        className={styles.removeButton}
+                                                        title="Remove from project"
+                                                    >
+                                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                        </svg>
+                                                    </button>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -515,6 +599,81 @@ export default function ProjectDetailPage() {
                 />
             )}
 
+            {/* Delete Project Modal */}
+            {showDeleteModal && project && (
+                <div className={styles.modalOverlay}>
+                    <div className={styles.modalContent} style={{ maxWidth: '450px' }}>
+                        <div className={styles.modalHeader}>
+                            <div style={{
+                                width: '3rem',
+                                height: '3rem',
+                                borderRadius: '50%',
+                                background: '#fef2f2',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                marginBottom: '1rem'
+                            }}>
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.5rem', height: '1.5rem', color: '#dc2626' }}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                </svg>
+                            </div>
+                            <h3 className={styles.modalTitle}>Delete Project</h3>
+                            <p className={styles.modalDescription} style={{ marginTop: '0.5rem' }}>
+                                This action cannot be undone. This will permanently delete the <strong>{project.name}</strong> project and remove all associations.
+                            </p>
+                            <div style={{ marginTop: '1rem' }}>
+                                <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, color: '#374151', marginBottom: '0.5rem' }}>
+                                    Please type <strong>{project.name}</strong> to confirm.
+                                </label>
+                                <input
+                                    type="text"
+                                    value={deleteConfirmName}
+                                    onChange={(e) => setDeleteConfirmName(e.target.value)}
+                                    placeholder={project.name}
+                                    style={{
+                                        width: '100%',
+                                        padding: '0.625rem 0.875rem',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '0.5rem',
+                                        fontSize: '0.938rem',
+                                    }}
+                                />
+                            </div>
+                        </div>
+                        <div className={styles.modalFooter}>
+                            <button
+                                className={styles.cancelButton}
+                                onClick={() => {
+                                    setShowDeleteModal(false);
+                                    setDeleteConfirmName('');
+                                }}
+                                disabled={deleting}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className={styles.deleteButton}
+                                onClick={handleDeleteProject}
+                                disabled={deleteConfirmName !== project.name || deleting}
+                                style={{
+                                    opacity: deleteConfirmName !== project.name || deleting ? 0.5 : 1,
+                                    cursor: deleteConfirmName !== project.name || deleting ? 'not-allowed' : 'pointer',
+                                    background: '#dc2626',
+                                    color: 'white',
+                                    border: 'none',
+                                    padding: '0.625rem 1.25rem',
+                                    borderRadius: '0.5rem',
+                                    fontWeight: 500,
+                                }}
+                            >
+                                {deleting ? 'Deleting...' : 'Delete Project'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {managingAccess && project && (
                 <ProjectAccessModal
                     project={project}
@@ -537,6 +696,19 @@ export default function ProjectDetailPage() {
                     }}
                 />
             )}
+
+            <ConfirmationModal
+                isOpen={confirmModal.isOpen}
+                title="Remove Resource"
+                message="Are you sure you want to remove this resource from the project? This will not delete the AWS resource itself."
+                resourceName={confirmModal.resourceName}
+                confirmLabel="Remove"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={confirmRemoveResource}
+                onCancel={() => setConfirmModal({ isOpen: false, resourceId: '', resourceName: '' })}
+                loading={removing}
+            />
         </>
     );
 }

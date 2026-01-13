@@ -72,7 +72,7 @@ func (h *ResourceDetailsHandler) GetResourceMetrics(w http.ResponseWriter, r *ht
 		region = secret.Region
 	}
 	if region == "" {
-		region = "us-east-1"
+		region = "ap-south-1"
 	}
 
 	period := req.Period

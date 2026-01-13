@@ -143,8 +143,8 @@ export default function MembersPage() {
                                     <div className={styles.memberDetails}>
                                         <div className={styles.detailItem}>
                                             <span className={styles.detailLabel}>Role:</span>
-                                            <span className={`${styles.roleBadge} ${user.role === 'admin' ? styles.roleAdmin : styles.roleDev}`}>
-                                                {user.role === 'admin' ? 'Admin' : 'Developer'}
+                                            <span className={`${styles.roleBadge} ${user.role === 'superadmin' || user.role === 'lead' ? styles.roleAdmin : styles.roleDev}`}>
+                                                {user.role === 'superadmin' ? 'Super Admin' : user.role === 'lead' ? 'Lead' : 'Developer'}
                                             </span>
                                         </div>
 
@@ -279,7 +279,8 @@ function UserModal({
                             className={styles.select}
                         >
                             <option value="dev">Developer</option>
-                            <option value="admin">Admin</option>
+                            <option value="lead">Lead</option>
+                            <option value="superadmin">Super Admin</option>
                         </select>
                     </div>
 

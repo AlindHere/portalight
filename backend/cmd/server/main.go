@@ -52,10 +52,37 @@ func main() {
 	mux.HandleFunc("/auth/github/callback", authHandler.HandleGithubCallback)
 
 	// Services API
+	serviceLinksHandler := handlers.NewServiceLinksHandler()
+	serviceResourcesHandler := handlers.NewServiceResourcesHandler()
+
 	mux.HandleFunc("/api/v1/services", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet {
 			handlers.GetServices(w, r)
 		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+
+	// Service detail endpoints with links and resources
+	mux.HandleFunc("/api/v1/services/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		// Route to links handler
+		if strings.Contains(path, "/links") {
+			serviceLinksHandler.HandleLinks(w, r)
+			return
+		}
+		// Route to resources handler
+		if strings.Contains(path, "/resources") {
+			serviceResourcesHandler.HandleResources(w, r)
+			return
+		}
+		// Default: Get or Update service by ID
+		switch r.Method {
+		case http.MethodGet:
+			handlers.GetServiceByID(w, r)
+		case http.MethodPatch, http.MethodPut:
+			handlers.UpdateService(w, r)
+		default:
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	})
@@ -92,6 +119,7 @@ func main() {
 	mux.HandleFunc("/api/v1/resources/sync", syncHandler.SyncProjectResources)
 	mux.HandleFunc("/api/v1/resources/associate", syncHandler.AssociateResources)
 	mux.HandleFunc("/api/v1/resources/discovered", syncHandler.GetProjectDiscoveredResources)
+	mux.HandleFunc("/api/v1/resources/discovered/", syncHandler.RemoveDiscoveredResource)
 
 	// Repository management endpoints
 	mux.HandleFunc("/api/v1/register", handlers.RegisterRepository)

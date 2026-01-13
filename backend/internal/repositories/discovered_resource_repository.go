@@ -109,6 +109,61 @@ func (r *DiscoveredResourceRepository) GetByProjectID(ctx context.Context, proje
 	return resources, rows.Err()
 }
 
+// GetBySecretID retrieves all discovered resources for a secret
+func (r *DiscoveredResourceRepository) GetBySecretID(ctx context.Context, secretID string) ([]models.DiscoveredResource, error) {
+	query := `
+		SELECT id, project_id, secret_id, arn, resource_type, name, region, status, metadata, last_synced_at, discovered_at, created_at, updated_at
+		FROM discovered_resources
+		WHERE secret_id = $1
+	`
+
+	rows, err := database.DB.Query(ctx, query, secretID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resources []models.DiscoveredResource
+	for rows.Next() {
+		var res models.DiscoveredResource
+		var secretID, metadata *string
+		var lastSyncedAt *time.Time
+
+		err := rows.Scan(
+			&res.ID,
+			&res.ProjectID,
+			&secretID,
+			&res.ARN,
+			&res.ResourceType,
+			&res.Name,
+			&res.Region,
+			&res.Status,
+			&metadata,
+			&lastSyncedAt,
+			&res.DiscoveredAt,
+			&res.CreatedAt,
+			&res.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if secretID != nil {
+			res.SecretID = *secretID
+		}
+		if metadata != nil {
+			res.Metadata = json.RawMessage(*metadata)
+		}
+		if lastSyncedAt != nil {
+			res.LastSyncedAt = lastSyncedAt
+		}
+
+		resources = append(resources, res)
+	}
+
+	return resources, rows.Err()
+}
+
 // GetByARN retrieves a discovered resource by ARN for a project
 func (r *DiscoveredResourceRepository) GetByARN(ctx context.Context, projectID, arn string) (*models.DiscoveredResource, error) {
 	query := `

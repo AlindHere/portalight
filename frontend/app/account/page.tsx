@@ -120,7 +120,7 @@ export default function AccountPage() {
                                             <div className={styles.teamMeta}>
                                                 <span>{team.member_ids.length} members</span>
                                                 <span>•</span>
-                                                <span>{team.service_ids.length} services</span>
+                                                <span>{team.service_ids?.length || 0} services</span>
                                             </div>
                                         </div>
                                     </div>

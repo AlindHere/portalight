@@ -267,6 +267,7 @@
     display: flex;
     flex-direction: column;
     height: 100%;
+    position: relative;
 }
 
 .serviceCard:hover {
@@ -487,4 +488,150 @@
     background: rgba(239, 68, 68, 0.1);
     color: #ef4444;
     border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Remove Button */
+.removeButton {
+    position: absolute;
+    bottom: 1rem;
+    right: 1rem;
+    width: 1.75rem;
+    height: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    cursor: pointer;
+    color: #9ca3af;
+    transition: all 0.2s ease;
+    z-index: 10;
+}
+
+.removeButton:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #dc2626;
+    transform: scale(1.05);
+}
+
+.removeButton svg {
+    width: 0.938rem;
+    height: 0.938rem;
+}
+
+/* Delete Modal Styles */
+.modalOverlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modalContent {
+    background: white;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    width: 100%;
+    max-width: 450px;
+    animation: slideUp 0.2s ease-out;
+    overflow: hidden;
+}
+
+.modalHeader {
+    padding: 1.5rem 1.5rem 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.modalTitle {
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: #111827;
+    margin: 0;
+}
+
+.modalDescription {
+    font-size: 0.938rem;
+    color: #6b7280;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.modalFooter {
+    padding: 1.5rem;
+    display: flex;
+    gap: 0.75rem;
+    justify-content: flex-end;
+    background: #f9fafb;
+    margin-top: 1.5rem;
+}
+
+.deleteButton {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
+    background: #fee2e2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: var(--radius-md);
+    font-weight: 600;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.deleteButton:hover {
+    background: #fecaca;
+    transform: translateY(-1px);
+}
+
+.cancelButton {
+    padding: 0.625rem 1.25rem;
+    background: white;
+    color: #374151;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cancelButton:hover {
+    background: #f3f4f6;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

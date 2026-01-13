@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"sort"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/credentials"
@@ -116,6 +118,9 @@ func (m *AWSMetrics) GetRDSMetrics(ctx context.Context, creds *models.AWSCredent
 					Value:     *dp.Average,
 				}
 			}
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i].Timestamp.Before(dataPoints[j].Timestamp)
+			})
 			metrics.Metrics[metricName] = dataPoints
 		}
 	}
@@ -169,6 +174,9 @@ func (m *AWSMetrics) GetLambdaMetrics(ctx context.Context, creds *models.AWSCred
 					Value:     val,
 				}
 			}
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i].Timestamp.Before(dataPoints[j].Timestamp)
+			})
 			metrics.Metrics[metricName] = dataPoints
 		}
 	}
@@ -227,6 +235,9 @@ func (m *AWSMetrics) GetS3Metrics(ctx context.Context, creds *models.AWSCredenti
 						Value:     *dp.Average,
 					}
 				}
+				sort.Slice(dataPoints, func(i, j int) bool {
+					return dataPoints[i].Timestamp.Before(dataPoints[j].Timestamp)
+				})
 				metrics.Metrics[metricName] = dataPoints
 				break // Found data, stop trying other storage types
 			}
@@ -282,6 +293,9 @@ func (m *AWSMetrics) GetSQSMetrics(ctx context.Context, creds *models.AWSCredent
 					Value:     val,
 				}
 			}
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i].Timestamp.Before(dataPoints[j].Timestamp)
+			})
 			metrics.Metrics[metricName] = dataPoints
 		}
 	}
@@ -336,6 +350,9 @@ func (m *AWSMetrics) GetSNSMetrics(ctx context.Context, creds *models.AWSCredent
 					Value:     val,
 				}
 			}
+			sort.Slice(dataPoints, func(i, j int) bool {
+				return dataPoints[i].Timestamp.Before(dataPoints[j].Timestamp)
+			})
 			metrics.Metrics[metricName] = dataPoints
 		}
 	}

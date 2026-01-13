@@ -147,6 +147,23 @@ func (r *ServiceRepository) FindByID(ctx context.Context, id string) (*models.Se
 	return &service, nil
 }
 
+// Update updates a service in the database
+func (r *ServiceRepository) Update(ctx context.Context, service *models.Service) error {
+	query := `
+		UPDATE services SET
+			owner = $2,
+			updated_at = NOW()
+		WHERE id = $1::uuid
+	`
+
+	_, err := database.DB.Exec(ctx, query, service.ID, service.Owner)
+	if err != nil {
+		return fmt.Errorf("failed to update service: %w", err)
+	}
+
+	return nil
+}
+
 // FindByProjectID returns all services for a specific project
 func (r *ServiceRepository) FindByProjectID(ctx context.Context, projectID string) ([]models.Service, error) {
 	query := `

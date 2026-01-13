@@ -35,7 +35,7 @@ export default function CredentialsPage() {
     // Form state
     const [name, setName] = useState('');
     const [accountId, setAccountId] = useState('');
-    const [region, setRegion] = useState('us-east-1');
+    const [region, setRegion] = useState('ap-south-1');
     const [accessKeyId, setAccessKeyId] = useState('');
     const [secretAccessKey, setSecretAccessKey] = useState('');
 
@@ -76,7 +76,7 @@ export default function CredentialsPage() {
             setShowForm(false);
             setName('');
             setAccountId('');
-            setRegion('us-east-1');
+            setRegion('ap-south-1');
             setAccessKeyId('');
             setSecretAccessKey('');
             loadData();

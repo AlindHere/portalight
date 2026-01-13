@@ -35,7 +35,7 @@ const AWS_REGIONS = [
 export default function ResourceDiscoveryModal({ projectId, onClose, onResourcesAssociated }: ResourceDiscoveryModalProps) {
     const [credentials, setCredentials] = useState<Secret[]>([]);
     const [selectedCredential, setSelectedCredential] = useState<string>('');
-    const [selectedRegion, setSelectedRegion] = useState<string>('us-east-1');
+    const [selectedRegion, setSelectedRegion] = useState<string>('ap-south-1');
     const [selectedTypes, setSelectedTypes] = useState<string[]>(['s3', 'sqs', 'sns', 'rds', 'lambda']);
 
     const [loading, setLoading] = useState(true);

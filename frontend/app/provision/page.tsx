@@ -73,20 +73,20 @@ export default function ProvisionPage() {
     const [resourceName, setResourceName] = useState('');
 
     // S3 Config
-    const [s3Region, setS3Region] = useState('us-east-1');
+    const [s3Region, setS3Region] = useState('ap-south-1');
     const [s3Versioning, setS3Versioning] = useState(false);
     const [s3PublicAccessBlocked, setS3PublicAccessBlocked] = useState(true);
     const [s3Encryption, setS3Encryption] = useState('AES256');
 
     // SQS Config
-    const [sqsRegion, setSqsRegion] = useState('us-east-1');
+    const [sqsRegion, setSqsRegion] = useState('ap-south-1');
     const [sqsQueueType, setSqsQueueType] = useState('standard');
     const [sqsVisibilityTimeout, setSqsVisibilityTimeout] = useState(30);
     const [sqsMessageRetentionDays, setSqsMessageRetentionDays] = useState(4);
     const [sqsDelaySeconds, setSqsDelaySeconds] = useState(0);
 
     // SNS Config
-    const [snsRegion, setSnsRegion] = useState('us-east-1');
+    const [snsRegion, setSnsRegion] = useState('ap-south-1');
     const [snsTopicType, setSnsTopicType] = useState('standard');
 
     useEffect(() => {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/portalight/backend/internal/api/middleware"
 	"github.com/portalight/backend/internal/models"
@@ -58,7 +59,7 @@ func (h *SyncHandler) SyncProjectResources(w http.ResponseWriter, r *http.Reques
 
 	region := req.Region
 	if region == "" {
-		region = "us-east-1"
+		region = "ap-south-1"
 	}
 
 	result, err := h.syncService.SyncProject(r.Context(), req.ProjectID, req.SecretID, region)
@@ -149,4 +150,45 @@ func (h *SyncHandler) GetProjectDiscoveredResources(w http.ResponseWriter, r *ht
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resources)
+}
+
+// RemoveDiscoveredResource removes a discovered resource from a project
+func (h *SyncHandler) RemoveDiscoveredResource(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodDelete {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userRole := middleware.GetUserRole(r.Context())
+	if userRole != "superadmin" && userRole != "lead" {
+		http.Error(w, "Only leads and superadmins can remove resources", http.StatusForbidden)
+		return
+	}
+
+	// Extract resource ID from URL path: /api/v1/resources/discovered/{id}
+	path := r.URL.Path
+	parts := strings.Split(path, "/")
+	if len(parts) < 5 {
+		http.Error(w, "Resource ID is required", http.StatusBadRequest)
+		return
+	}
+	resourceID := parts[len(parts)-1]
+
+	if resourceID == "" {
+		http.Error(w, "Resource ID is required", http.StatusBadRequest)
+		return
+	}
+
+	err := h.resourceRepo.Delete(r.Context(), resourceID)
+	if err != nil {
+		log.Printf("Failed to delete discovered resource: %v", err)
+		http.Error(w, "Failed to delete resource", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"message": "Resource removed successfully",
+	})
 }

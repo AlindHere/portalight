@@ -170,7 +170,7 @@ function CredentialsTab({ credentials, onRefresh }: { credentials: any[], onRefr
     // Form state
     const [name, setName] = useState('');
     const [accountId, setAccountId] = useState('');
-    const [region, setRegion] = useState('us-east-1');
+    const [region, setRegion] = useState('ap-south-1');
     const [accessType, setAccessType] = useState<'read' | 'write'>('write');
     const [accessKeyId, setAccessKeyId] = useState('');
     const [secretAccessKey, setSecretAccessKey] = useState('');
@@ -220,7 +220,7 @@ function CredentialsTab({ credentials, onRefresh }: { credentials: any[], onRefr
             // Reset form and close modal
             setName('');
             setAccountId('');
-            setRegion('us-east-1');
+            setRegion('ap-south-1');
             setAccessType('write');
             setAccessKeyId('');
             setSecretAccessKey('');

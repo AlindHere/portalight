@@ -13,15 +13,17 @@ import (
 
 // DiscoveryHandler handles AWS resource discovery endpoints
 type DiscoveryHandler struct {
-	discovery  *services.AWSDiscovery
-	secretRepo *repositories.SecretRepository
+	discovery              *services.AWSDiscovery
+	secretRepo             *repositories.SecretRepository
+	discoveredResourceRepo *repositories.DiscoveredResourceRepository
 }
 
 // NewDiscoveryHandler creates a new discovery handler
 func NewDiscoveryHandler() *DiscoveryHandler {
 	return &DiscoveryHandler{
-		discovery:  services.NewAWSDiscovery(),
-		secretRepo: &repositories.SecretRepository{},
+		discovery:              services.NewAWSDiscovery(),
+		secretRepo:             &repositories.SecretRepository{},
+		discoveredResourceRepo: repositories.NewDiscoveredResourceRepository(),
 	}
 }
 
@@ -70,7 +72,23 @@ func (h *DiscoveryHandler) DiscoverResources(w http.ResponseWriter, r *http.Requ
 		region = secret.Region
 	}
 	if region == "" {
-		region = "us-east-1"
+		region = "ap-south-1"
+	}
+
+	// Get existing discovered resources for this secret to filter duplicates
+	existingResources, err := h.discoveredResourceRepo.GetBySecretID(r.Context(), req.SecretID)
+	if err != nil {
+		log.Printf("Failed to get existing resources: %v", err)
+		// Continue even if we fail to get existing resources, just don't filter
+	}
+
+	log.Printf("DEBUG: DiscoverResources - SecretID: %s", req.SecretID)
+	log.Printf("DEBUG: Found %d existing resources in DB for this secret", len(existingResources))
+
+	existingARNs := make(map[string]bool)
+	for _, res := range existingResources {
+		existingARNs[res.ARN] = true
+		log.Printf("DEBUG: Existing ARN in DB: %s", res.ARN)
 	}
 
 	// Discover resources based on requested types
@@ -103,7 +121,14 @@ func (h *DiscoveryHandler) DiscoverResources(w http.ResponseWriter, r *http.Requ
 			log.Printf("Failed to discover %s resources: %v", resourceType, discoverErr)
 			// Continue with other types even if one fails
 		} else {
-			allResources = append(allResources, resources...)
+			// Filter out existing resources
+			for _, res := range resources {
+				if !existingARNs[res.ARN] {
+					allResources = append(allResources, res)
+				} else {
+					log.Printf("DEBUG: Filtering out existing resource: %s", res.ARN)
+				}
+			}
 		}
 	}
 

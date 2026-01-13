@@ -45,7 +45,7 @@ export default function ResourceDetailsPage() {
 
     const resourceType = searchParams.get('type') || '';
     const resourceName = searchParams.get('name') || '';
-    const region = searchParams.get('region') || 'us-east-1';
+    const region = searchParams.get('region') || 'ap-south-1';
 
     const [credentials, setCredentials] = useState<Secret[]>([]);
     const [selectedCredential, setSelectedCredential] = useState<string>('');
