@@ -6,8 +6,8 @@ import Header from '@/components/layout/Header';
 import StatsCard from '@/components/dashboard/StatsCard';
 import RegisterModal from '@/components/modals/RegisterModal';
 import ProjectAccessModal from '@/components/ProjectAccessModal';
-import { fetchProjects, fetchTeams, fetchServices, fetchUsers, fetchCurrentUser, updateProjectAccess, fetchDevProvisioningPermissions } from '@/lib/api';
-import { Project, Team, Service, User } from '@/lib/types';
+import { fetchProjects, fetchTeams, fetchServices, fetchUsers, fetchCurrentUser, updateProjectAccess, fetchDevProvisioningPermissions, fetchDiscoveredResources } from '@/lib/api';
+import { Project, Team, Service, User, DiscoveredResourceDB } from '@/lib/types';
 import styles from './page.module.css';
 
 function HomeContent() {
@@ -17,6 +17,7 @@ function HomeContent() {
   const [services, setServices] = useState<Service[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [discoveredResources, setDiscoveredResources] = useState<DiscoveredResourceDB[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [loading, setLoading] = useState(true);
@@ -35,18 +36,20 @@ function HomeContent() {
 
   const loadData = async () => {
     try {
-      const [projectsData, teamsData, servicesData, usersData, currentUserData] = await Promise.all([
+      const [projectsData, teamsData, servicesData, usersData, currentUserData, resourcesData] = await Promise.all([
         fetchProjects(),
         fetchTeams(),
         fetchServices(),
         fetchUsers(),
         fetchCurrentUser(),
+        fetchDiscoveredResources(),
       ]);
       setProjects(projectsData || []);
       setTeams(teamsData || []);
       setServices(servicesData || []);
       setUsers(usersData || []);
       setCurrentUser(currentUserData.user);
+      setDiscoveredResources(resourcesData || []);
 
       // If user is a dev, check their provisioning permissions
       if (currentUserData.user?.role === 'dev') {
@@ -104,10 +107,10 @@ function HomeContent() {
   };
 
   const stats = {
-    totalServices: projects.length,
-    productionServices: projects.filter(p => p.owner_team_id).length,
-    avgUptime: '99.9%',
-    totalOwners: teams.length,
+    totalProjects: projects.length,
+    totalServices: services.length,
+    totalResources: discoveredResources.length,
+    totalUsers: users.length,
   };
 
   return (
@@ -151,24 +154,40 @@ function HomeContent() {
           {!searchQuery && (
             <div className={styles.statsGrid}>
               <StatsCard
-                title="Total Projects"
+                title="Projects"
+                value={stats.totalProjects.toString()}
+                icon={
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                }
+              />
+              <StatsCard
+                title="Services"
                 value={stats.totalServices.toString()}
-                icon="📦"
+                icon={
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+                  </svg>
+                }
               />
               <StatsCard
-                title="Active Projects"
-                value={stats.productionServices.toString()}
-                icon="✅"
+                title="Cloud Resources"
+                value={stats.totalResources.toString()}
+                icon={
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  </svg>
+                }
               />
               <StatsCard
-                title="Avg Uptime"
-                value={stats.avgUptime}
-                icon="⏱️"
-              />
-              <StatsCard
-                title="Teams"
-                value={stats.totalOwners.toString()}
-                icon="👥"
+                title="Users"
+                value={stats.totalUsers.toString()}
+                icon={
+                  <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" width="24" height="24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                }
               />
             </div>
           )}
@@ -192,7 +211,7 @@ function HomeContent() {
                     >
                       <div
                         className={styles.projectCardContent}
-                        onClick={() => router.push(`/projects/${project.id}`)}
+                        onClick={() => router.push(`/projects/${project.name}`)}
                       >
                         <div className={styles.projectHeader}>
                           <div className={styles.projectIcon}>
@@ -273,7 +292,7 @@ function HomeContent() {
                       >
                         <div
                           className={styles.projectCardContent}
-                          onClick={() => router.push(`/projects/${project.id}`)}
+                          onClick={() => router.push(`/projects/${project.name}`)}
                         >
                           <div className={styles.projectHeader}>
                             <div className={styles.projectIcon}>
@@ -321,7 +340,7 @@ function HomeContent() {
                       <div
                         key={service.id}
                         className={styles.serviceCard}
-                        onClick={() => router.push(`/services/${service.id}`)}
+                        onClick={() => router.push(`/services/${service.name}`)}
                       >
                         <div className={styles.serviceHeader}>
                           <h3>{service.name}</h3>

@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/portalight/backend/internal/api/middleware"
+	"github.com/portalight/backend/internal/models"
 	"github.com/portalight/backend/internal/repositories"
 )
 
@@ -30,17 +31,17 @@ func GetServices(w http.ResponseWriter, r *http.Request) {
 func GetServiceByID(w http.ResponseWriter, r *http.Request) {
 	ctx := context.Background()
 
-	// Extract service ID from path: /api/v1/services/{id}
+	// Extract service ID/name from path: /api/v1/services/{id}
 	path := r.URL.Path
 	parts := strings.Split(path, "/")
 	if len(parts) < 5 {
-		http.Error(w, "Service ID is required", http.StatusBadRequest)
+		http.Error(w, "Service identifier is required", http.StatusBadRequest)
 		return
 	}
-	serviceID := parts[4]
+	serviceIdentifier := parts[4]
 
-	if serviceID == "" {
-		http.Error(w, "Service ID is required", http.StatusBadRequest)
+	if serviceIdentifier == "" {
+		http.Error(w, "Service identifier is required", http.StatusBadRequest)
 		return
 	}
 
@@ -49,12 +50,24 @@ func GetServiceByID(w http.ResponseWriter, r *http.Request) {
 	mappingRepo := repositories.NewServiceResourceMappingRepository()
 	teamRepo := &repositories.TeamRepository{}
 
-	// Get service
-	service, err := serviceRepo.FindByID(ctx, serviceID)
+	// Determine if it's a UUID or a name
+	var service *models.Service
+	var err error
+
+	// Simple UUID check: 36 characters with hyphens in right places
+	if len(serviceIdentifier) == 36 && strings.Count(serviceIdentifier, "-") == 4 {
+		service, err = serviceRepo.FindByID(ctx, serviceIdentifier)
+	} else {
+		service, err = serviceRepo.FindByName(ctx, serviceIdentifier)
+	}
+
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Service not found: %v", err), http.StatusNotFound)
 		return
 	}
+
+	// Use the actual service ID for further queries
+	serviceID := service.ID
 
 	// Get team name
 	if service.Team != "" {

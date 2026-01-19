@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import { fetchServiceById, fetchCurrentUser, addServiceLink, deleteServiceLink, updateServiceLink, mapResourcesToService, unmapResourceFromService, fetchDiscoveredResources, fetchTeams, fetchUsers, fetchProjectById } from '@/lib/api';
@@ -28,9 +28,16 @@ const RESOURCE_ICONS: Record<string, string> = {
 export default function ServiceDetailPage() {
     const params = useParams();
     const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Read initial tab from URL, default to 'overview'
+    const validTabs: TabType[] = ['overview', 'logs', 'deployments', 'monitoring', 'documentation'];
+    const urlTab = searchParams.get('tab') as TabType;
+    const initialTab: TabType = validTabs.includes(urlTab) ? urlTab : 'overview';
+
     const [service, setService] = useState<Service | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
-    const [activeTab, setActiveTab] = useState<TabType>('overview');
+    const [activeTab, setActiveTab] = useState<TabType>(initialTab);
     const [loading, setLoading] = useState(true);
     const [projectName, setProjectName] = useState<string | null>(null);
 
@@ -45,6 +52,15 @@ export default function ServiceDetailPage() {
     const [showTeamMembers, setShowTeamMembers] = useState(false);
     const [teamMembers, setTeamMembers] = useState<User[]>([]);
     const [loadingMembers, setLoadingMembers] = useState(false);
+
+    // Update URL when tab changes
+    const handleTabChange = (tab: TabType) => {
+        setActiveTab(tab);
+        const newUrl = tab === 'overview'
+            ? `/services/${params.id}`
+            : `/services/${params.id}?tab=${tab}`;
+        window.history.replaceState({}, '', newUrl);
+    };
 
     // Close team members popover when clicking outside
     useEffect(() => {
@@ -184,7 +200,7 @@ export default function ServiceDetailPage() {
                         <span className={styles.breadcrumbSeparator}>/</span>
                         {projectName && service.project_id && (
                             <>
-                                <button onClick={() => router.push(`/projects/${service.project_id}`)} className={styles.breadcrumbLink}>
+                                <button onClick={() => router.push(`/projects/${projectName}`)} className={styles.breadcrumbLink}>
                                     {projectName}
                                 </button>
                                 <span className={styles.breadcrumbSeparator}>/</span>
@@ -224,7 +240,7 @@ export default function ServiceDetailPage() {
                             <button
                                 key={tab.id}
                                 className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
-                                onClick={() => setActiveTab(tab.id)}
+                                onClick={() => handleTabChange(tab.id)}
                             >
                                 {tab.label}
                             </button>
@@ -247,6 +263,7 @@ export default function ServiceDetailPage() {
                                 teamMembers={teamMembers}
                                 loadingMembers={loadingMembers}
                                 handleShowTeamMembers={handleShowTeamMembers}
+                                router={router}
                             />
                         )}
                         {activeTab === 'logs' && <LogsTab service={service} />}
@@ -319,9 +336,11 @@ interface OverviewTabProps {
     teamMembers: User[];
     loadingMembers: boolean;
     handleShowTeamMembers: () => void;
+    // Router for navigation
+    router: ReturnType<typeof import('next/navigation').useRouter>;
 }
 
-function OverviewTab({ service, isAdmin, onAddLink, onDeleteLink, onEditLink, onMapResource, onUnmapResource, onEdit, showTeamMembers, teamMembers, loadingMembers, handleShowTeamMembers }: OverviewTabProps) {
+function OverviewTab({ service, isAdmin, onAddLink, onDeleteLink, onEditLink, onMapResource, onUnmapResource, onEdit, showTeamMembers, teamMembers, loadingMembers, handleShowTeamMembers, router }: OverviewTabProps) {
     // Helper function to format dates properly
     const formatDate = (dateStr: string) => {
         const date = new Date(dateStr);
@@ -620,6 +639,7 @@ function OverviewTab({ service, isAdmin, onAddLink, onDeleteLink, onEditLink, on
                                 {service.mapped_resources.map((resource) => (
                                     <div
                                         key={resource.id}
+                                        onClick={() => router.push(`/resources?type=${resource.resource_type}&name=${resource.resource_name}&region=${resource.region || 'ap-south-1'}`)}
                                         style={{
                                             background: '#f9fafb',
                                             border: '1px solid #e5e7eb',
@@ -628,6 +648,16 @@ function OverviewTab({ service, isAdmin, onAddLink, onDeleteLink, onEditLink, on
                                             display: 'flex',
                                             alignItems: 'center',
                                             justifyContent: 'space-between',
+                                            cursor: 'pointer',
+                                            transition: 'all 0.15s ease',
+                                        }}
+                                        onMouseEnter={(e) => {
+                                            e.currentTarget.style.borderColor = '#10b981';
+                                            e.currentTarget.style.background = 'white';
+                                        }}
+                                        onMouseLeave={(e) => {
+                                            e.currentTarget.style.borderColor = '#e5e7eb';
+                                            e.currentTarget.style.background = '#f9fafb';
                                         }}
                                     >
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -641,7 +671,10 @@ function OverviewTab({ service, isAdmin, onAddLink, onDeleteLink, onEditLink, on
                                         </div>
                                         {isAdmin && (
                                             <button
-                                                onClick={() => onUnmapResource(resource.discovered_resource_id, resource.resource_name || 'Resource')}
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    onUnmapResource(resource.discovered_resource_id, resource.resource_name || 'Resource');
+                                                }}
                                                 style={{
                                                     background: 'transparent',
                                                     border: 'none',

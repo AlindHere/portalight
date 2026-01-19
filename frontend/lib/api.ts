@@ -1,4 +1,4 @@
-import { Service, ServiceLink, ServiceResourceMapping, Secret, Stats, Resource } from './types';
+import { Service, ServiceLink, ServiceResourceMapping, Secret, Stats, Resource, DiscoveredResource, DiscoveredResourceDB } from './types';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
@@ -234,15 +234,7 @@ export async function fetchProjectResources(projectId: string): Promise<Resource
 }
 
 // AWS Resource Discovery
-export interface DiscoveredResource {
-    arn: string;
-    type: string; // s3, sqs, sns, rds, lambda
-    name: string;
-    region: string;
-    status: string;
-    metadata: Record<string, any>;
-    discovered_at: string;
-}
+
 
 export interface DiscoveryResponse {
     resources: DiscoveredResource[];
@@ -304,21 +296,7 @@ export async function fetchResourceMetrics(
 }
 
 // Discovered Resources & Sync
-export interface DiscoveredResourceDB {
-    id: string;
-    project_id: string;
-    secret_id: string;
-    arn: string;
-    resource_type: string;
-    name: string;
-    region: string;
-    status: 'active' | 'deleted' | 'unknown';
-    metadata: Record<string, any>;
-    last_synced_at: string | null;
-    discovered_at: string;
-    created_at: string;
-    updated_at: string;
-}
+// Discovered Resources & Sync
 
 export interface SyncResult {
     project_id: string;
@@ -372,8 +350,12 @@ export async function associateResources(
     return handleResponse(response, 'Failed to associate resources');
 }
 
-export async function fetchDiscoveredResources(projectId: string): Promise<DiscoveredResourceDB[]> {
-    const response = await fetch(`${API_BASE_URL}/api/v1/resources/discovered?project_id=${projectId}`, {
+export async function fetchDiscoveredResources(projectId?: string): Promise<DiscoveredResourceDB[]> {
+    const url = projectId
+        ? `${API_BASE_URL}/api/v1/resources/discovered?project_id=${projectId}`
+        : `${API_BASE_URL}/api/v1/resources/discovered`;
+
+    const response = await fetch(url, {
         headers: getHeaders(),
     });
     return handleResponse(response, 'Failed to fetch discovered resources');
@@ -385,6 +367,13 @@ export async function removeDiscoveredResource(resourceId: string): Promise<{ su
         headers: getHeaders(),
     });
     return handleResponse(response, 'Failed to remove resource');
+}
+
+export async function fetchResourceById(identifier: string): Promise<DiscoveredResourceDB> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/resources/discovered/${identifier}`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch resource');
 }
 
 export function calculateStats(services: Service[]): Stats {

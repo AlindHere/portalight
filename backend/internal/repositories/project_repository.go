@@ -130,6 +130,68 @@ func (r *ProjectRepository) FindByID(ctx context.Context, id string) (*models.Pr
 	return &project, nil
 }
 
+// FindByName finds a project by name
+func (r *ProjectRepository) FindByName(ctx context.Context, name string) (*models.Project, error) {
+	query := `
+		SELECT id, name, description, confluence_url, avatar, owner_team_id, secret_id,
+		       catalog_file_path, auto_synced, sync_status,
+		       created_at, updated_at
+		FROM projects
+		WHERE name = $1
+	`
+
+	var project models.Project
+	var confluenceURL, avatar, ownerTeamID, secretID, catalogFilePath, syncStatus *string
+
+	err := database.DB.QueryRow(ctx, query, name).Scan(
+		&project.ID,
+		&project.Name,
+		&project.Description,
+		&confluenceURL,
+		&avatar,
+		&ownerTeamID,
+		&secretID,
+		&catalogFilePath,
+		&project.AutoSynced,
+		&syncStatus,
+		&project.CreatedAt,
+		&project.UpdatedAt,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("project not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if confluenceURL != nil {
+		project.ConfluenceURL = *confluenceURL
+	}
+	if avatar != nil {
+		project.Avatar = *avatar
+	}
+	if ownerTeamID != nil {
+		project.OwnerTeamID = *ownerTeamID
+	}
+	if secretID != nil {
+		project.SecretID = *secretID
+	}
+	if catalogFilePath != nil {
+		project.CatalogFilePath = *catalogFilePath
+	}
+	if syncStatus != nil {
+		project.SyncStatus = *syncStatus
+	}
+
+	// Load team IDs and user IDs
+	teamIDs, userIDs, _ := r.GetProjectAccess(ctx, project.ID)
+	project.TeamIDs = teamIDs
+	project.UserIDs = userIDs
+
+	return &project, nil
+}
+
 // Create creates a new project
 func (r *ProjectRepository) Create(ctx context.Context, project *models.Project) error {
 	if project.ID == "" {

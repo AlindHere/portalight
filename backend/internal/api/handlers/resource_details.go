@@ -7,22 +7,65 @@ import (
 	"strings"
 
 	"github.com/portalight/backend/internal/api/middleware"
+	"github.com/portalight/backend/internal/models"
 	"github.com/portalight/backend/internal/repositories"
 	"github.com/portalight/backend/internal/services"
 )
 
 // ResourceDetailsHandler handles resource details and metrics endpoints
 type ResourceDetailsHandler struct {
-	metrics    *services.AWSMetrics
-	secretRepo *repositories.SecretRepository
+	metrics      *services.AWSMetrics
+	secretRepo   *repositories.SecretRepository
+	resourceRepo *repositories.DiscoveredResourceRepository
 }
 
 // NewResourceDetailsHandler creates a new resource details handler
 func NewResourceDetailsHandler() *ResourceDetailsHandler {
 	return &ResourceDetailsHandler{
-		metrics:    services.NewAWSMetrics(),
-		secretRepo: &repositories.SecretRepository{},
+		metrics:      services.NewAWSMetrics(),
+		secretRepo:   &repositories.SecretRepository{},
+		resourceRepo: repositories.NewDiscoveredResourceRepository(),
 	}
+}
+
+// GetResourceByID returns a single discovered resource by ID or name
+func (h *ResourceDetailsHandler) GetResourceByID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	// Verify authentication
+	userRole := middleware.GetUserRole(ctx)
+	if userRole == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Extract identifier from URL: /api/v1/resources/discovered/{id}
+	path := strings.TrimPrefix(r.URL.Path, "/api/v1/resources/discovered/")
+	identifier := strings.Split(path, "/")[0]
+
+	if identifier == "" {
+		http.Error(w, "Resource identifier required", http.StatusBadRequest)
+		return
+	}
+
+	// Determine if it's a UUID or a name
+	var resource *models.DiscoveredResource
+	var err error
+
+	// Simple UUID check: 36 characters with hyphens in right places
+	if len(identifier) == 36 && strings.Count(identifier, "-") == 4 {
+		resource, err = h.resourceRepo.FindByID(ctx, identifier)
+	} else {
+		resource, err = h.resourceRepo.FindByName(ctx, identifier)
+	}
+
+	if err != nil {
+		http.Error(w, "Resource not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resource)
 }
 
 // GetResourceMetricsRequest is the request body for fetching metrics

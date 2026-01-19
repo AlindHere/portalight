@@ -119,7 +119,15 @@ func main() {
 	mux.HandleFunc("/api/v1/resources/sync", syncHandler.SyncProjectResources)
 	mux.HandleFunc("/api/v1/resources/associate", syncHandler.AssociateResources)
 	mux.HandleFunc("/api/v1/resources/discovered", syncHandler.GetProjectDiscoveredResources)
-	mux.HandleFunc("/api/v1/resources/discovered/", syncHandler.RemoveDiscoveredResource)
+	mux.HandleFunc("/api/v1/resources/discovered/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			resourceDetailsHandler.GetResourceByID(w, r)
+		} else if r.Method == http.MethodDelete {
+			syncHandler.RemoveDiscoveredResource(w, r)
+		} else {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
 
 	// Repository management endpoints
 	mux.HandleFunc("/api/v1/register", handlers.RegisterRepository)

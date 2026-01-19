@@ -168,3 +168,29 @@ export interface Resource {
     created_at: string;
     updated_at: string;
 }
+
+export interface DiscoveredResource {
+    arn: string;
+    type: string;
+    name: string;
+    region: string;
+    status?: string;
+    metadata: Record<string, any>;
+    discovered_at?: string;
+}
+
+export interface DiscoveredResourceDB {
+    id: string;
+    project_id: string;
+    secret_id: string;
+    arn: string;
+    resource_type: string;
+    name: string;
+    region: string;
+    status: 'active' | 'deleted' | 'unknown';
+    metadata: Record<string, any>;
+    last_synced_at: string | null;
+    discovered_at: string;
+    created_at: string;
+    updated_at: string;
+}

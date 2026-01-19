@@ -90,7 +90,7 @@ export default function ProjectsPage() {
                                 <div
                                     key={project.id}
                                     className={styles.projectCard}
-                                    onClick={() => router.push(`/projects/${project.id}`)}
+                                    onClick={() => router.push(`/projects/${project.name}`)}
                                 >
                                     <div className={styles.projectHeader}>
                                         <div className={styles.projectIcon}>

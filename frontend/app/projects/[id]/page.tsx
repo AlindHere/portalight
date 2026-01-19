@@ -72,22 +72,30 @@ export default function ProjectDetailPage() {
 
     const loadData = async () => {
         try {
-            const [projectData, userData, teamsData, usersData, resourcesData, discoveredData, credsData] = await Promise.all([
+            // First fetch the project by name/ID to get the actual project data
+            const [projectData, userData, teamsData, usersData, credsData] = await Promise.all([
                 fetchProjectById(projectId),
                 fetchCurrentUser(),
                 fetchTeams(),
                 fetchUsers(),
-                fetchProjectResources(projectId),
-                fetchDiscoveredResources(projectId),
                 fetchAWSCredentials(),
             ]);
+
             setProject(projectData);
             setCurrentUser(userData.user);
             setAllTeams(teamsData);
             setAllUsers(usersData);
+            setCredentials(credsData || []);
+
+            // Use the actual project ID for resources (these endpoints need the UUID)
+            const actualProjectId = projectData.id;
+            const [resourcesData, discoveredData] = await Promise.all([
+                fetchProjectResources(actualProjectId),
+                fetchDiscoveredResources(actualProjectId),
+            ]);
+
             setResources(resourcesData);
             setDiscoveredResources(discoveredData || []);
-            setCredentials(credsData || []);
         } catch (error) {
             console.error('Failed to load project:', error);
         } finally {
@@ -358,7 +366,6 @@ export default function ProjectDetailPage() {
                                             fontSize: '0.875rem',
                                             fontWeight: 500,
                                             cursor: 'pointer',
-                                            marginRight: '0.75rem',
                                         }}
                                     >
                                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1.125rem', height: '1.125rem' }}>
@@ -559,7 +566,7 @@ export default function ProjectDetailPage() {
                                             <div
                                                 key={service.id}
                                                 className={styles.serviceCard}
-                                                onClick={() => router.push(`/services/${service.id}`)}
+                                                onClick={() => router.push(`/services/${service.name}`)}
                                             >
                                                 <div className={styles.serviceHeader}>
                                                     <div className="flex items-center gap-2">

@@ -109,6 +109,61 @@ func (r *DiscoveredResourceRepository) GetByProjectID(ctx context.Context, proje
 	return resources, rows.Err()
 }
 
+// GetAll retrieves all discovered resources
+func (r *DiscoveredResourceRepository) GetAll(ctx context.Context) ([]models.DiscoveredResource, error) {
+	query := `
+		SELECT id, project_id, secret_id, arn, resource_type, name, region, status, metadata, last_synced_at, discovered_at, created_at, updated_at
+		FROM discovered_resources
+		ORDER BY resource_type, name
+	`
+
+	rows, err := database.DB.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var resources []models.DiscoveredResource
+	for rows.Next() {
+		var res models.DiscoveredResource
+		var secretID, metadata *string
+		var lastSyncedAt *time.Time
+
+		err := rows.Scan(
+			&res.ID,
+			&res.ProjectID,
+			&secretID,
+			&res.ARN,
+			&res.ResourceType,
+			&res.Name,
+			&res.Region,
+			&res.Status,
+			&metadata,
+			&lastSyncedAt,
+			&res.DiscoveredAt,
+			&res.CreatedAt,
+			&res.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		if secretID != nil {
+			res.SecretID = *secretID
+		}
+		if metadata != nil {
+			res.Metadata = json.RawMessage(*metadata)
+		}
+		if lastSyncedAt != nil {
+			res.LastSyncedAt = lastSyncedAt
+		}
+
+		resources = append(resources, res)
+	}
+
+	return resources, rows.Err()
+}
+
 // GetBySecretID retrieves all discovered resources for a secret
 func (r *DiscoveredResourceRepository) GetBySecretID(ctx context.Context, secretID string) ([]models.DiscoveredResource, error) {
 	query := `
@@ -177,6 +232,95 @@ func (r *DiscoveredResourceRepository) GetByARN(ctx context.Context, projectID, 
 	var lastSyncedAt *time.Time
 
 	err := database.DB.QueryRow(ctx, query, projectID, arn).Scan(
+		&res.ID,
+		&res.ProjectID,
+		&secretID,
+		&res.ARN,
+		&res.ResourceType,
+		&res.Name,
+		&res.Region,
+		&res.Status,
+		&metadata,
+		&lastSyncedAt,
+		&res.DiscoveredAt,
+		&res.CreatedAt,
+		&res.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if secretID != nil {
+		res.SecretID = *secretID
+	}
+	if metadata != nil {
+		res.Metadata = json.RawMessage(*metadata)
+	}
+	if lastSyncedAt != nil {
+		res.LastSyncedAt = lastSyncedAt
+	}
+
+	return &res, nil
+}
+
+// FindByID finds a discovered resource by ID
+func (r *DiscoveredResourceRepository) FindByID(ctx context.Context, id string) (*models.DiscoveredResource, error) {
+	query := `
+		SELECT id, project_id, secret_id, arn, resource_type, name, region, status, metadata, last_synced_at, discovered_at, created_at, updated_at
+		FROM discovered_resources
+		WHERE id = $1
+	`
+
+	var res models.DiscoveredResource
+	var secretID, metadata *string
+	var lastSyncedAt *time.Time
+
+	err := database.DB.QueryRow(ctx, query, id).Scan(
+		&res.ID,
+		&res.ProjectID,
+		&secretID,
+		&res.ARN,
+		&res.ResourceType,
+		&res.Name,
+		&res.Region,
+		&res.Status,
+		&metadata,
+		&lastSyncedAt,
+		&res.DiscoveredAt,
+		&res.CreatedAt,
+		&res.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	if secretID != nil {
+		res.SecretID = *secretID
+	}
+	if metadata != nil {
+		res.Metadata = json.RawMessage(*metadata)
+	}
+	if lastSyncedAt != nil {
+		res.LastSyncedAt = lastSyncedAt
+	}
+
+	return &res, nil
+}
+
+// FindByName finds a discovered resource by name
+func (r *DiscoveredResourceRepository) FindByName(ctx context.Context, name string) (*models.DiscoveredResource, error) {
+	query := `
+		SELECT id, project_id, secret_id, arn, resource_type, name, region, status, metadata, last_synced_at, discovered_at, created_at, updated_at
+		FROM discovered_resources
+		WHERE name = $1
+		LIMIT 1
+	`
+
+	var res models.DiscoveredResource
+	var secretID, metadata *string
+	var lastSyncedAt *time.Time
+
+	err := database.DB.QueryRow(ctx, query, name).Scan(
 		&res.ID,
 		&res.ProjectID,
 		&secretID,

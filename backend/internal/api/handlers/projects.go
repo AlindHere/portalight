@@ -34,27 +34,36 @@ func GetProjectByID(w http.ResponseWriter, r *http.Request) {
 	serviceRepo := &repositories.ServiceRepository{}
 	teamRepo := &repositories.TeamRepository{}
 
-	// Extract ID from URL path
+	// Extract ID/name from URL path
 	path := strings.TrimPrefix(r.URL.Path, "/api/v1/projects/")
-	projectID := strings.Split(path, "/")[0]
+	projectIdentifier := strings.Split(path, "/")[0]
 
-	// Find project
-	project, err := projectRepo.FindByID(ctx, projectID)
+	// Determine if it's a UUID or a name
+	var project *models.Project
+	var err error
+
+	// Simple UUID check: 36 characters with hyphens in right places
+	if len(projectIdentifier) == 36 && strings.Count(projectIdentifier, "-") == 4 {
+		project, err = projectRepo.FindByID(ctx, projectIdentifier)
+	} else {
+		project, err = projectRepo.FindByName(ctx, projectIdentifier)
+	}
+
 	if err != nil {
 		if err.Error() == "project not found" {
 			http.Error(w, "Project not found", http.StatusNotFound)
 		} else {
-			log.Printf("Error fetching project %s: %v", projectID, err)
+			log.Printf("Error fetching project %s: %v", projectIdentifier, err)
 			http.Error(w, fmt.Sprintf("Failed to fetch project: %v", err), http.StatusInternalServerError)
 		}
 		return
 	}
 
 	// Get associated services
-	services, err := serviceRepo.FindByProjectID(ctx, projectID)
+	services, err := serviceRepo.FindByProjectID(ctx, project.ID)
 	if err != nil {
 		// Log error but continue with empty services
-		log.Printf("Failed to fetch services for project %s: %v", projectID, err)
+		log.Printf("Failed to fetch services for project %s: %v", project.ID, err)
 		services = []models.Service{}
 	}
 

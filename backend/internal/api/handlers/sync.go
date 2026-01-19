@@ -132,12 +132,16 @@ func (h *SyncHandler) GetProjectDiscoveredResources(w http.ResponseWriter, r *ht
 	}
 
 	projectID := r.URL.Query().Get("project_id")
-	if projectID == "" {
-		http.Error(w, "project_id is required", http.StatusBadRequest)
-		return
+
+	var resources []models.DiscoveredResource
+	var err error
+
+	if projectID != "" {
+		resources, err = h.resourceRepo.GetByProjectID(r.Context(), projectID)
+	} else {
+		resources, err = h.resourceRepo.GetAll(r.Context())
 	}
 
-	resources, err := h.resourceRepo.GetByProjectID(r.Context(), projectID)
 	if err != nil {
 		log.Printf("Failed to get discovered resources: %v", err)
 		http.Error(w, "Failed to get resources", http.StatusInternalServerError)

@@ -93,13 +93,13 @@ func (r *ServiceRepository) GetAll(ctx context.Context) ([]models.Service, error
 // FindByID finds a service by ID
 func (r *ServiceRepository) FindByID(ctx context.Context, id string) (*models.Service, error) {
 	query := `
-		SELECT id, name, description, environment, language, tags, github_repo, owner, grafana_url, confluence_url, team_id
+		SELECT id, name, description, environment, language, tags, github_repo, owner, grafana_url, confluence_url, team_id, project_id
 		FROM services
 		WHERE id = $1::uuid
 	`
 
 	var service models.Service
-	var environment, language, grafanaURL, confluenceURL, teamID *string
+	var environment, language, grafanaURL, confluenceURL, teamID, projectID *string
 	var tags []string
 
 	err := database.DB.QueryRow(ctx, query, id).Scan(
@@ -114,6 +114,7 @@ func (r *ServiceRepository) FindByID(ctx context.Context, id string) (*models.Se
 		&grafanaURL,
 		&confluenceURL,
 		&teamID,
+		&projectID,
 	)
 
 	if err == pgx.ErrNoRows {
@@ -142,6 +143,66 @@ func (r *ServiceRepository) FindByID(ctx context.Context, id string) (*models.Se
 	}
 	if teamID != nil {
 		service.Team = *teamID
+	}
+	if projectID != nil {
+		service.ProjectID = *projectID
+	}
+
+	return &service, nil
+}
+
+// FindByName finds a service by name
+func (r *ServiceRepository) FindByName(ctx context.Context, name string) (*models.Service, error) {
+	query := `
+		SELECT id, name, description, environment, language, tags, github_repo, owner, grafana_url, confluence_url, team_id, project_id
+		FROM services
+		WHERE name = $1
+	`
+
+	var service models.Service
+	var environment, language, grafanaURL, confluenceURL, teamID, projectID *string
+	var tags []string
+
+	err := database.DB.QueryRow(ctx, query, name).Scan(
+		&service.ID,
+		&service.Name,
+		&service.Description,
+		&environment,
+		&language,
+		&tags,
+		&service.Repository,
+		&service.Owner,
+		&grafanaURL,
+		&confluenceURL,
+		&teamID,
+		&projectID,
+	)
+
+	if err == pgx.ErrNoRows {
+		return nil, fmt.Errorf("service not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if environment != nil {
+		service.Environment = *environment
+	}
+	if language != nil {
+		service.Language = *language
+	}
+	service.Tags = tags
+	if grafanaURL != nil {
+		service.GrafanaURL = *grafanaURL
+	}
+	if confluenceURL != nil {
+		service.ConfluenceURL = *confluenceURL
+	}
+	if teamID != nil {
+		service.Team = *teamID
+	}
+	if projectID != nil {
+		service.ProjectID = *projectID
 	}
 
 	return &service, nil
