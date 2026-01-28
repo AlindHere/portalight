@@ -78,6 +78,7 @@ export interface Secret {
     region: string;
     account_id?: string;
     access_type?: 'read' | 'write';
+    project_id?: string;
     created_by?: string;
     created_at: string;
     updated_at: string;
@@ -194,3 +195,6 @@ export interface DiscoveredResourceDB {
     created_at: string;
     updated_at: string;
 }
+
+// Type alias for backward compatibility
+export type AWSCredential = Secret;

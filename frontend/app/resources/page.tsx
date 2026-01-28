@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import { fetchAWSCredentials, fetchResourceMetrics, ResourceMetrics, MetricDataPoint } from '@/lib/api';
@@ -39,7 +39,7 @@ const METRIC_LABELS: Record<string, string> = {
     ApproximateAgeOfOldestMessage: 'Oldest Message Age (s)',
 };
 
-export default function ResourceDetailsPage() {
+function ResourceDetailsContent() {
     const router = useRouter();
     const searchParams = useSearchParams();
 
@@ -1028,6 +1028,14 @@ export default function ResourceDetailsPage() {
             )
             }
         </>
+    );
+}
+
+export default function ResourceDetailsPage() {
+    return (
+        <Suspense fallback={<div>Loading...</div>}>
+            <ResourceDetailsContent />
+        </Suspense>
     );
 }
 

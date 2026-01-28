@@ -3,6 +3,7 @@
 import { useState, useEffect, Fragment } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
+import CustomDropdown from '@/components/ui/CustomDropdown';
 import { fetchAuditLogs, fetchCurrentUser } from '@/lib/api';
 import { AuditLog, User } from '@/lib/types';
 import styles from './page.module.css';
@@ -140,17 +141,18 @@ export default function AuditLogsPage() {
                                 value={filters.userEmail}
                                 onChange={(e) => setFilters({ ...filters, userEmail: e.target.value })}
                             />
-                            <select
-                                className={styles.filterSelect}
+                            <CustomDropdown
                                 value={filters.action}
-                                onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-                            >
-                                <option value="">All Actions</option>
-                                <option value="provision_resource">Provision Resource</option>
-                                <option value="create_project">Create Project</option>
-                                <option value="update_project">Update Project</option>
-                                <option value="delete_project">Delete Project</option>
-                            </select>
+                                onChange={(value) => setFilters({ ...filters, action: value })}
+                                options={[
+                                    { value: '', label: 'All Actions' },
+                                    { value: 'provision_resource', label: 'Provision Resource' },
+                                    { value: 'create_project', label: 'Create Project' },
+                                    { value: 'update_project', label: 'Update Project' },
+                                    { value: 'delete_project', label: 'Delete Project' },
+                                ]}
+                                placeholder="Filter by action..."
+                            />
                         </div>
                         <button onClick={exportToCSV} className={styles.exportButton}>
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -3,18 +3,26 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import CustomDropdown from '@/components/ui/CustomDropdown';
+import { useToast } from '@/components/ui/Toast';
 import { fetchUsers, fetchTeams, createUser, updateUser, deleteUser } from '@/lib/api';
 import { User, Team, Role } from '@/lib/types';
 import styles from './page.module.css';
 
 export default function MembersPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [users, setUsers] = useState<User[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [editingUser, setEditingUser] = useState<User | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Delete user confirmation modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [userToDelete, setUserToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -45,15 +53,26 @@ export default function MembersPage() {
         setShowModal(true);
     };
 
-    const handleDeleteUser = async (userId: string) => {
-        if (confirm('Are you sure you want to delete this user?')) {
-            try {
-                await deleteUser(userId);
-                setUsers(users.filter(u => u.id !== userId));
-            } catch (error) {
-                console.error('Failed to delete user:', error);
-                alert('Failed to delete user');
-            }
+    // Request to delete user (shows confirmation modal)
+    const requestDeleteUser = (userId: string) => {
+        setUserToDelete(userId);
+        setShowDeleteModal(true);
+    };
+
+    // Actually delete the user after confirmation
+    const confirmDeleteUser = async () => {
+        if (!userToDelete) return;
+        setShowDeleteModal(false);
+
+        try {
+            await deleteUser(userToDelete);
+            setUsers(users.filter(u => u.id !== userToDelete));
+            showToast('User deleted successfully', 'success');
+        } catch (error) {
+            console.error('Failed to delete user:', error);
+            showToast('Failed to delete user', 'error');
+        } finally {
+            setUserToDelete(null);
         }
     };
 
@@ -62,14 +81,16 @@ export default function MembersPage() {
             if (editingUser) {
                 const updated = await updateUser({ ...editingUser, ...userData } as User);
                 setUsers(users.map(u => u.id === updated.id ? updated : u));
+                showToast('User updated successfully', 'success');
             } else {
                 const newUser = await createUser(userData);
                 setUsers([...users, newUser]);
+                showToast('User created successfully', 'success');
             }
             setShowModal(false);
         } catch (error) {
             console.error('Failed to save user:', error);
-            alert('Failed to save user');
+            showToast('Failed to save user', 'error');
         }
     };
 
@@ -175,7 +196,7 @@ export default function MembersPage() {
                                         </button>
                                         <button
                                             className={styles.deleteButton}
-                                            onClick={() => handleDeleteUser(user.id)}
+                                            onClick={() => requestDeleteUser(user.id)}
                                         >
                                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -199,6 +220,22 @@ export default function MembersPage() {
                     onClose={() => setShowModal(false)}
                 />
             )}
+
+            {/* Delete User Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                title="Delete User"
+                message="Are you sure you want to delete this user?"
+                resourceName={users.find(u => u.id === userToDelete)?.name}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={confirmDeleteUser}
+                onCancel={() => {
+                    setShowDeleteModal(false);
+                    setUserToDelete(null);
+                }}
+            />
         </>
     );
 }
@@ -273,15 +310,16 @@ function UserModal({
 
                     <div className={styles.formGroup}>
                         <label>Role</label>
-                        <select
+                        <CustomDropdown
                             value={formData.role}
-                            onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
-                            className={styles.select}
-                        >
-                            <option value="dev">Developer</option>
-                            <option value="lead">Lead</option>
-                            <option value="superadmin">Super Admin</option>
-                        </select>
+                            onChange={(value) => setFormData({ ...formData, role: value as Role })}
+                            options={[
+                                { value: 'dev', label: 'Developer' },
+                                { value: 'lead', label: 'Lead' },
+                                { value: 'superadmin', label: 'Super Admin' },
+                            ]}
+                            placeholder="Select role..."
+                        />
                     </div>
 
                     <div className={styles.formGroup}>

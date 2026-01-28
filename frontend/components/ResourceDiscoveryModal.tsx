@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { fetchAWSCredentials, discoverResources, associateResources, DiscoveredResource, DiscoveryResponse } from '@/lib/api';
-import { Secret } from '@/lib/types';
+import { fetchAWSCredentials, discoverResources, associateResources, DiscoveryResponse } from '@/lib/api';
+import { Secret, DiscoveredResource } from '@/lib/types';
 import styles from './ResourceDiscoveryModal.module.css';
 import CustomDropdown from './ui/CustomDropdown';
 

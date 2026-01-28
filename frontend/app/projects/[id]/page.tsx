@@ -7,15 +7,17 @@ import ProjectEditModal from '@/components/ProjectEditModal';
 import ProjectAccessModal from '@/components/ProjectAccessModal';
 import ResourceDiscoveryModal from '@/components/ResourceDiscoveryModal';
 import ConfirmationModal from '@/components/ConfirmationModal';
-import { fetchProjectById, fetchCurrentUser, updateProject, fetchTeams, fetchUsers, updateProjectAccess, syncProject, fetchProjectResources, fetchDiscoveredResources, syncProjectResources, fetchAWSCredentials, removeDiscoveredResource, DiscoveredResource, DiscoveredResourceDB, deleteProject } from '@/lib/api';
-import { ProjectWithServices, User, Team, Project, Resource, Secret } from '@/lib/types';
+import { fetchProjectById, fetchCurrentUser, updateProject, fetchTeams, fetchUsers, updateProjectAccess, syncProject, fetchProjectResources, fetchDiscoveredResources, syncProjectResources, fetchAWSCredentials, removeDiscoveredResource, deleteProject } from '@/lib/api';
+import { ProjectWithServices, User, Team, Project, Resource, Secret, DiscoveredResource, DiscoveredResourceDB } from '@/lib/types';
 import styles from './page.module.css';
 import CustomDropdown from '@/components/ui/CustomDropdown';
+import { useToast } from '@/components/ui/Toast';
 
 export default function ProjectDetailPage() {
     const router = useRouter();
     const params = useParams();
     const searchParams = useSearchParams();
+    const { showToast } = useToast();
     const projectId = params.id as string;
 
     // Read initial tab from URL, default to 'services'
@@ -111,9 +113,10 @@ export default function ProjectDetailPage() {
             const updatedProject = await updateProject(project.id, data);
             setProject({ ...project, ...updatedProject });
             setIsEditingProject(false);
+            showToast('Project updated successfully', 'success');
         } catch (error) {
             console.error('Failed to update project:', error);
-            alert('Failed to update project');
+            showToast('Failed to update project', 'error');
         }
     };
 
@@ -123,10 +126,11 @@ export default function ProjectDetailPage() {
         setDeleting(true);
         try {
             await deleteProject(project.id);
+            showToast('Project deleted successfully', 'success');
             router.push('/');
         } catch (error) {
             console.error('Failed to delete project:', error);
-            alert('Failed to delete project');
+            showToast('Failed to delete project', 'error');
             setDeleting(false);
         }
     };
@@ -137,9 +141,10 @@ export default function ProjectDetailPage() {
         try {
             await updateProjectAccess(project.id, teamIds, userIds);
             setProject({ ...project, team_ids: teamIds, user_ids: userIds });
+            showToast('Access updated successfully', 'success');
         } catch (error) {
             console.error('Failed to update access:', error);
-            alert('Failed to update access');
+            showToast('Failed to update access', 'error');
         }
     };
 

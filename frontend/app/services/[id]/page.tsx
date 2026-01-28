@@ -1,9 +1,10 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Header from '@/components/layout/Header';
-import { fetchServiceById, fetchCurrentUser, addServiceLink, deleteServiceLink, updateServiceLink, mapResourcesToService, unmapResourceFromService, fetchDiscoveredResources, fetchTeams, fetchUsers, fetchProjectById } from '@/lib/api';
+import { fetchServiceById, fetchCurrentUser, addServiceLink, deleteServiceLink, updateServiceLink, mapResourcesToService, unmapResourceFromService, fetchDiscoveredResources, fetchTeams, fetchUsers, fetchProjectById, fetchServiceArgoCDApps, fetchArgoCDApplications, fetchArgoCDConfig, linkArgoCDApp, unlinkArgoCDApp, fetchArgoCDAppStatus, fetchArgoCDAppPods, fetchArgoCDPodLogs, deleteArgoCDPod, syncArgoCDApp, ServiceArgoCDApp, ArgoCDApplication, ArgoCDPod } from '@/lib/api';
+import CustomDropdown from '@/components/ui/CustomDropdown';
 import { Service, ServiceLink, ServiceResourceMapping, User, Team, Project } from '@/lib/types';
 import GrafanaFrame from '@/components/integrations/GrafanaFrame';
 import ConfluenceFrame from '@/components/integrations/ConfluenceFrame';
@@ -181,8 +182,8 @@ export default function ServiceDetailPage() {
 
     const tabs = [
         { id: 'overview' as TabType, label: 'Overview' },
-        { id: 'logs' as TabType, label: 'Logs' },
         { id: 'deployments' as TabType, label: 'Deployments' },
+        { id: 'logs' as TabType, label: 'Logs' },
         { id: 'monitoring' as TabType, label: 'Monitoring' },
         { id: 'documentation' as TabType, label: 'Documentation' },
     ];
@@ -266,8 +267,8 @@ export default function ServiceDetailPage() {
                                 router={router}
                             />
                         )}
-                        {activeTab === 'logs' && <LogsTab service={service} />}
-                        {activeTab === 'deployments' && <DeploymentsTab service={service} />}
+                        {activeTab === 'logs' && <LogsTab service={service} currentUser={currentUser} />}
+                        {activeTab === 'deployments' && <DeploymentsTab service={service} currentUser={currentUser} />}
                         {activeTab === 'monitoring' && <MonitoringTab service={service} />}
                         {activeTab === 'documentation' && <DocumentationTab service={service} />}
                     </div>
@@ -762,62 +763,1237 @@ function OverviewTab({ service, isAdmin, onAddLink, onDeleteLink, onEditLink, on
 }
 
 
-// Logs Tab Component
-function LogsTab({ service }: { service: Service }) {
-    const lokiUrl = service.loki_url || service.grafana_url;
+// Logs Tab Component with ArgoCD Integration
+function LogsTab({ service, currentUser }: { service: Service; currentUser: User | null }) {
+    const [linkedApps, setLinkedApps] = useState<ServiceArgoCDApp[]>([]);
+    const [selectedEnv, setSelectedEnv] = useState<string>('');
+    const [pods, setPods] = useState<ArgoCDPod[]>([]);
+    const [selectedPod, setSelectedPod] = useState<string>('');
+    const [selectedContainer, setSelectedContainer] = useState<string>('');
+    const [logs, setLogs] = useState<string>('');
+    const [loading, setLoading] = useState(true);
+    const [logsLoading, setLogsLoading] = useState(false);
+    const [autoRefresh, setAutoRefresh] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [wrapLines, setWrapLines] = useState(true);
+    const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
-    return (
-        <div className={styles.tabContent}>
-            <h2 className={styles.sectionTitle}>Application Logs</h2>
-            {lokiUrl ? (
-                <GrafanaFrame
-                    url={lokiUrl}
-                    title={`${service.name} Logs`}
-                    height="700px"
-                />
-            ) : (
+    useEffect(() => {
+        loadLinkedApps();
+    }, [service.id]);
+
+    useEffect(() => {
+        if (selectedEnv) {
+            loadPods();
+        }
+    }, [selectedEnv]);
+
+    // Update selected container when pod changes
+    useEffect(() => {
+        if (selectedPod && pods.length > 0) {
+            const pod = pods.find(p => p.name === selectedPod);
+            if (pod && pod.containers && pod.containers.length > 0) {
+                // Auto-select the first container
+                setSelectedContainer(pod.containers[0]);
+            } else {
+                setSelectedContainer('');
+            }
+        }
+    }, [selectedPod, pods]);
+
+    useEffect(() => {
+        if (selectedPod && selectedContainer) {
+            loadLogs();
+        }
+    }, [selectedPod, selectedContainer]);
+
+    useEffect(() => {
+        if (!autoRefresh || !selectedPod) return;
+        const interval = setInterval(loadLogs, 5000);
+        return () => clearInterval(interval);
+    }, [autoRefresh, selectedPod, selectedContainer]);
+
+    const loadLinkedApps = async () => {
+        try {
+            const apps = await fetchServiceArgoCDApps(service.id);
+            setLinkedApps(apps || []);
+            if (apps && apps.length > 0) {
+                setSelectedEnv(apps[0].environment_name);
+            }
+        } catch (error) {
+            console.error('Failed to load linked apps:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadPods = async () => {
+        const app = linkedApps.find(a => a.environment_name === selectedEnv);
+        if (!app) return;
+        try {
+            const podList = await fetchArgoCDAppPods(app.argocd_app_name);
+            setPods(podList || []);
+            if (podList && podList.length > 0) {
+                const firstPod = podList[0];
+                setSelectedPod(firstPod.name);
+                if (firstPod.containers && firstPod.containers.length > 0) {
+                    setSelectedContainer(firstPod.containers[0]);
+                    // Auto-load logs for first pod/container
+                    loadLogsForPod(app.argocd_app_name, firstPod.name, firstPod.namespace, firstPod.containers[0]);
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load pods:', error);
+            setPods([]);
+        }
+    };
+
+    const loadLogsForPod = async (appName: string, podName: string, namespace: string, container: string) => {
+        setLogsLoading(true);
+        try {
+            const logContent = await fetchArgoCDPodLogs(appName, podName, namespace, container);
+            setLogs(logContent);
+        } catch (error) {
+            console.error('Failed to load logs:', error);
+            setLogs('Failed to load logs');
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
+    const loadLogs = async () => {
+        const app = linkedApps.find(a => a.environment_name === selectedEnv);
+        const pod = pods.find(p => p.name === selectedPod);
+        if (!app || !pod) return;
+
+        setLogsLoading(true);
+        try {
+            const logContent = await fetchArgoCDPodLogs(app.argocd_app_name, pod.name, pod.namespace, selectedContainer);
+            setLogs(logContent);
+        } catch (error) {
+            console.error('Failed to load logs:', error);
+            setLogs('Failed to load logs');
+        } finally {
+            setLogsLoading(false);
+        }
+    };
+
+
+    // Helper function to find and format JSON in content using balanced brace counting
+    const formatJsonInContent = (content: string): string => {
+        if (!content) return content;
+
+        let result = '';
+        let i = 0;
+
+        while (i < content.length) {
+            const char = content[i];
+
+            // Check for start of JSON object or array
+            if (char === '{' || char === '[') {
+                const start = i;
+                const openChar = char;
+                const closeChar = char === '{' ? '}' : ']';
+                let depth = 1;
+                let j = i + 1;
+                let inString = false;
+                let escape = false;
+
+                // Find matching closing brace
+                while (j < content.length && depth > 0) {
+                    const c = content[j];
+
+                    if (!escape && c === '"') {
+                        inString = !inString;
+                    } else if (!inString && !escape) {
+                        if (c === openChar) depth++;
+                        else if (c === closeChar) depth--;
+                    }
+
+                    if (c === '\\' && !escape) escape = true;
+                    else escape = false;
+
+                    j++;
+                }
+
+                if (depth === 0) {
+                    // Found a balanced chunk
+                    const candidate = content.substring(start, j);
+                    try {
+                        const parsed = JSON.parse(candidate);
+                        // It's valid JSON, format it
+                        result += '\n' + JSON.stringify(parsed, null, 2) + '\n';
+                        i = j; // Advance past this chunk
+                        continue;
+                    } catch (e) {
+                        // Not valid JSON, just append the character and continue
+                    }
+                }
+            }
+
+            result += char;
+            i++;
+        }
+
+        return result;
+    };
+
+    // Parse log lines - aggregate lines that don't start with a timestamp
+    const parseLogLines = (logText: string) => {
+        if (!logText) return [];
+
+        // Split by newline first to process line by line
+        const rawLines = logText.split('\n');
+        const timestampRegex = /^\s*(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)/;
+
+        const aggregatedEntries: { timestamp: string | null, content: string, raw: string }[] = [];
+        let currentEntry: { timestamp: string | null, content: string, raw: string } | null = null;
+
+        for (const line of rawLines) {
+            if (!line.trim()) continue;
+
+            const match = line.match(timestampRegex);
+
+            if (match) {
+                // Start of a new log entry
+                if (currentEntry) {
+                    aggregatedEntries.push(currentEntry);
+                }
+
+                // Extract content (everything after the full match)
+                const timestamp = match[1];
+                const content = line.substring(match[0].length).trim();
+
+                currentEntry = {
+                    timestamp,
+                    content,
+                    raw: line
+                };
+            } else {
+                // Continuation of previous entry or start of a non-timestamped entry
+                if (currentEntry) {
+                    currentEntry.content += '\n' + line;
+                    currentEntry.raw += '\n' + line;
+                } else {
+                    // First line has no timestamp
+                    currentEntry = {
+                        timestamp: null,
+                        content: line,
+                        raw: line
+                    };
+                }
+            }
+        }
+
+        // Push the last entry
+        if (currentEntry) {
+            aggregatedEntries.push(currentEntry);
+        }
+
+        return aggregatedEntries.map((entry, index) => {
+            return {
+                lineNumber: index + 1,
+                timestamp: entry.timestamp,
+                content: formatJsonInContent(entry.content),
+                raw: entry.raw
+            };
+        });
+    };
+
+    // Memoize parsed log lines to avoid re-parsing on every render
+    const logLines = useMemo(() => parseLogLines(logs), [logs]);
+
+    // Debounced search filter
+    const [debouncedSearch, setDebouncedSearch] = useState('');
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchQuery);
+        }, 150); // 150ms debounce for responsive feel
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Reset match index when search changes
+    useEffect(() => {
+        setCurrentMatchIndex(0);
+    }, [debouncedSearch]);
+
+    // Memoize filtered lines
+    const filteredLines = useMemo(() => {
+        if (!debouncedSearch) return logLines;
+        const lowerSearch = debouncedSearch.toLowerCase();
+        return logLines.filter(line => line.raw.toLowerCase().includes(lowerSearch));
+    }, [logLines, debouncedSearch]);
+
+    const matchCount = debouncedSearch ? filteredLines.length : 0;
+
+    // Navigate to next/previous match
+    const goToNextMatch = () => {
+        if (matchCount > 0) {
+            const nextIndex = (currentMatchIndex + 1) % matchCount;
+            setCurrentMatchIndex(nextIndex);
+            scrollToMatch(nextIndex);
+        }
+    };
+
+    const goToPrevMatch = () => {
+        if (matchCount > 0) {
+            const prevIndex = (currentMatchIndex - 1 + matchCount) % matchCount;
+            setCurrentMatchIndex(prevIndex);
+            scrollToMatch(prevIndex);
+        }
+    };
+
+    const scrollToMatch = (index: number) => {
+        const matchElement = document.getElementById(`log-line-${filteredLines[index]?.lineNumber}`);
+        if (matchElement) {
+            matchElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+    };
+
+    // Highlight search matches in text - optimized
+    const highlightText = (text: string, query: string, isCurrentMatch: boolean) => {
+        if (!query || !text) return text;
+        try {
+            const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
+            return parts.map((part, i) =>
+                part.toLowerCase() === query.toLowerCase()
+                    ? <mark key={i} style={{
+                        background: isCurrentMatch ? '#f59e0b' : '#fef3c7',
+                        color: '#000',
+                        padding: '0 2px',
+                        borderRadius: '2px',
+                        fontWeight: isCurrentMatch ? 600 : 400,
+                    }}>{part}</mark>
+                    : part
+            );
+        } catch {
+            return text;
+        }
+    };
+
+    if (loading) {
+        return <div className={styles.tabContent}><p>Loading...</p></div>;
+    }
+
+    if (linkedApps.length === 0) {
+        return (
+            <div className={styles.tabContent}>
+                <h2 className={styles.sectionTitle}>Application Logs</h2>
                 <div style={{ padding: '3rem', textAlign: 'center', background: '#f9fafb', borderRadius: '0.75rem', color: '#6b7280' }}>
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '3rem', height: '3rem', margin: '0 auto 1rem', opacity: 0.5 }}>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p>No log viewer configured for this service.</p>
-                    <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Configure a Grafana/Loki URL to view logs.</p>
+                    <p>No ArgoCD environments configured.</p>
+                    <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Go to the Deployments tab to link an ArgoCD application.</p>
                 </div>
-            )}
+            </div>
+        );
+    }
+
+    return (
+        <div className={styles.tabContent}>
+            <h2 className={styles.sectionTitle}>Application Logs</h2>
+
+            {/* Environment Tabs */}
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}>
+                {linkedApps.map(app => (
+                    <button
+                        key={app.id}
+                        onClick={() => setSelectedEnv(app.environment_name)}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            borderRadius: '0.375rem 0.375rem 0 0',
+                            border: 'none',
+                            background: selectedEnv === app.environment_name ? '#3b82f6' : '#f3f4f6',
+                            color: selectedEnv === app.environment_name ? 'white' : '#374151',
+                            fontWeight: 500,
+                            cursor: 'pointer',
+                        }}
+                    >
+                        {app.environment_name}
+                    </button>
+                ))}
+            </div>
+
+
+
+            {/* Controls Row 1: Pod and Container Selection */}
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div>
+                    <label style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Pod</label>
+                    <CustomDropdown
+                        value={selectedPod}
+                        onChange={(value) => setSelectedPod(value)}
+                        options={pods.map(pod => ({ value: pod.name, label: pod.name }))}
+                        placeholder="Select Pod"
+                        disabled={pods.length === 0}
+                    />
+                </div>
+                <div>
+                    <label style={{ fontSize: '0.75rem', color: '#6b7280', display: 'block', marginBottom: '0.25rem' }}>Container</label>
+                    <CustomDropdown
+                        value={selectedContainer}
+                        onChange={(value) => setSelectedContainer(value)}
+                        options={pods.find(p => p.name === selectedPod)?.containers?.map(c => ({ value: c, label: c })) || []}
+                        placeholder="Select Container"
+                        disabled={!selectedPod}
+                    />
+                </div>
+                <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                    <button
+                        onClick={loadLogs}
+                        disabled={logsLoading || !selectedPod || !selectedContainer}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                        }}
+                    >
+                        <svg
+                            style={{
+                                width: '1rem',
+                                height: '1rem',
+                                animation: logsLoading ? 'spin 1s linear infinite' : 'none',
+                            }}
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        {logsLoading ? 'Loading...' : 'Refresh'}
+                    </button>
+                    <button
+                        onClick={() => setAutoRefresh(!autoRefresh)}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            background: autoRefresh ? '#10b981' : '#f3f4f6',
+                            color: autoRefresh ? 'white' : '#374151',
+                            border: '1px solid #e5e7eb',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            fontSize: '0.875rem',
+                        }}
+                    >
+                        {autoRefresh ? '⏸ Stop' : '▶ Auto'}
+                    </button>
+                </div>
+            </div>
+
+            {/* Controls Row 2: Search and Display Options */}
+            <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ position: 'relative', flex: 1, minWidth: '250px' }}>
+                    <input
+                        type="text"
+                        placeholder="Search logs..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        style={{
+                            width: '100%',
+                            padding: '0.5rem 1rem 0.5rem 2.5rem',
+                            borderRadius: '0.375rem',
+                            border: '1px solid #e5e7eb',
+                            fontSize: '0.875rem',
+                        }}
+                    />
+                    <svg
+                        style={{
+                            position: 'absolute',
+                            left: '0.75rem',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            width: '1rem',
+                            height: '1rem',
+                            color: '#9ca3af',
+                        }}
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    {debouncedSearch && matchCount > 0 && (
+                        <div style={{
+                            position: 'absolute',
+                            right: '0.5rem',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.25rem',
+                        }}>
+                            <span style={{ fontSize: '0.75rem', color: '#6b7280', marginRight: '0.25rem' }}>
+                                {currentMatchIndex + 1}/{matchCount}
+                            </span>
+                            <button
+                                onClick={goToPrevMatch}
+                                style={{
+                                    padding: '0.125rem 0.375rem',
+                                    background: '#f3f4f6',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '0.25rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    color: '#374151',
+                                }}
+                                title="Previous match (↑)"
+                            >
+                                ↑
+                            </button>
+                            <button
+                                onClick={goToNextMatch}
+                                style={{
+                                    padding: '0.125rem 0.375rem',
+                                    background: '#f3f4f6',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '0.25rem',
+                                    cursor: 'pointer',
+                                    fontSize: '0.75rem',
+                                    color: '#374151',
+                                }}
+                                title="Next match (↓)"
+                            >
+                                ↓
+                            </button>
+                        </div>
+                    )}
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#6b7280', cursor: 'pointer' }}>
+                    <input
+                        type="checkbox"
+                        checked={wrapLines}
+                        onChange={(e) => setWrapLines(e.target.checked)}
+                        style={{ cursor: 'pointer' }}
+                    />
+                    Wrap
+                </label>
+                {searchQuery && (
+                    <button
+                        onClick={() => setSearchQuery('')}
+                        style={{
+                            padding: '0.25rem 0.5rem',
+                            background: '#fee2e2',
+                            color: '#991b1b',
+                            border: 'none',
+                            borderRadius: '0.25rem',
+                            cursor: 'pointer',
+                            fontSize: '0.75rem',
+                        }}
+                    >
+                        Clear filter
+                    </button>
+                )}
+            </div>
+
+            {/* Log Viewer */}
+            <div style={{
+                background: '#ffffff',
+                borderRadius: '0.5rem',
+                overflow: 'hidden',
+                border: '1px solid #e5e7eb',
+            }}>
+                {/* Log Header */}
+                <div style={{
+                    background: '#f9fafb',
+                    padding: '0.5rem 1rem',
+                    borderBottom: '1px solid #e5e7eb',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                }}>
+                    <span style={{ color: '#6b7280', fontSize: '0.75rem', fontWeight: 500 }}>
+                        📋 {selectedPod} / {selectedContainer}
+                    </span>
+                    <span style={{ color: '#9ca3af', fontSize: '0.75rem' }}>
+                        {filteredLines.length} lines {debouncedSearch && `(filtered from ${logLines.length})`}
+                    </span>
+                </div>
+
+                {/* Log Content - displays with newest at bottom */}
+                <div
+                    id="log-container"
+                    style={{
+                        height: '600px',
+                        overflow: 'auto',
+                        fontFamily: "'JetBrains Mono', 'Fira Code', 'Monaco', 'Consolas', monospace",
+                        fontSize: '0.8125rem',
+                        lineHeight: '1.6',
+                        display: 'flex',
+                        flexDirection: 'column',
+                    }}
+                    ref={(el) => {
+                        // Auto-scroll to bottom when logs change (newest logs at bottom)
+                        if (el && !debouncedSearch) {
+                            el.scrollTop = el.scrollHeight;
+                        }
+                    }}
+                >
+                    {filteredLines.length === 0 ? (
+                        <div style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {logs ? 'No matching lines found.' : 'No logs available. Select a pod and container.'}
+                        </div>
+                    ) : (
+                        <div style={{ marginTop: 'auto' }}>
+                            {filteredLines.map((line, index) => {
+                                const isCurrentMatch = Boolean(debouncedSearch) && index === currentMatchIndex;
+                                return (
+                                    <div
+                                        key={line.lineNumber}
+                                        id={`log-line-${line.lineNumber}`}
+                                        style={{
+                                            display: 'flex',
+                                            borderBottom: '1px solid #f3f4f6',
+                                            background: isCurrentMatch
+                                                ? '#fcd34d'
+                                                : (debouncedSearch && line.raw.toLowerCase().includes(debouncedSearch.toLowerCase())
+                                                    ? '#fef3c7'
+                                                    : 'transparent'),
+                                        }}
+                                    >
+
+                                        {line.timestamp && (
+                                            <div style={{
+                                                padding: '0.25rem 0.75rem',
+                                                color: '#6366f1',
+                                                whiteSpace: 'nowrap',
+                                                fontWeight: 500,
+                                                flexShrink: 0,
+                                            }}>
+                                                {line.timestamp}
+                                            </div>
+                                        )}
+                                        <div style={{
+                                            padding: '0.25rem 0.75rem',
+                                            color: '#374151',
+                                            whiteSpace: wrapLines ? 'pre-wrap' : 'pre',
+                                            wordBreak: wrapLines ? 'break-word' : 'normal',
+                                            flex: 1,
+                                        }}>
+                                            {debouncedSearch ? highlightText(line.content, debouncedSearch, isCurrentMatch) : line.content}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>
     );
 }
 
-// Deployments Tab Component
-function DeploymentsTab({ service }: { service: Service }) {
-    const argocdUrl = service.argocd_url;
+// Deployments Tab Component with ArgoCD Integration
+function DeploymentsTab({ service, currentUser }: { service: Service; currentUser: User | null }) {
+    const [linkedApps, setLinkedApps] = useState<ServiceArgoCDApp[]>([]);
+    const [allApps, setAllApps] = useState<ArgoCDApplication[]>([]);
+    const [selectedEnv, setSelectedEnv] = useState<string>('');
+    const [appStatus, setAppStatus] = useState<ArgoCDApplication | null>(null);
+    const [pods, setPods] = useState<ArgoCDPod[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [newEnvName, setNewEnvName] = useState('');
+    const [newAppName, setNewAppName] = useState('');
+    const [addLoading, setAddLoading] = useState(false);
+    const [actionLoading, setActionLoading] = useState<string | null>(null);
+    const [argocdBaseUrl, setArgocdBaseUrl] = useState<string>('');
+
+    // Delete confirmation modal state
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [podToDelete, setPodToDelete] = useState<ArgoCDPod | null>(null);
+
+    // Remove environment modal state
+    const [showRemoveEnvModal, setShowRemoveEnvModal] = useState(false);
+    const [envToRemove, setEnvToRemove] = useState<{ appId: string; envName: string } | null>(null);
+
+    // Toast notification state
+    const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+    const isAdmin = currentUser?.role === 'lead' || currentUser?.role === 'superadmin';
+
+    useEffect(() => {
+        loadLinkedApps();
+        loadArgocdConfig();
+    }, [service.id]);
+
+    const loadArgocdConfig = async () => {
+        try {
+            const config = await fetchArgoCDConfig();
+            if (config.base_url) {
+                setArgocdBaseUrl(config.base_url);
+            }
+        } catch (error) {
+            console.error('Failed to load ArgoCD config:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (selectedEnv) {
+            loadAppDetails();
+        }
+    }, [selectedEnv, linkedApps]);
+
+    const loadLinkedApps = async () => {
+        try {
+            const apps = await fetchServiceArgoCDApps(service.id);
+            setLinkedApps(apps || []);
+            if (apps && apps.length > 0) {
+                setSelectedEnv(apps[0].environment_name);
+            }
+        } catch (error) {
+            console.error('Failed to load linked apps:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const loadAppDetails = async () => {
+        const app = linkedApps.find(a => a.environment_name === selectedEnv);
+        if (!app) return;
+
+        setActionLoading('refresh');
+        try {
+            const [status, podList] = await Promise.all([
+                fetchArgoCDAppStatus(app.argocd_app_name),
+                fetchArgoCDAppPods(app.argocd_app_name),
+            ]);
+            setAppStatus(status);
+            setPods(podList || []);
+        } catch (error) {
+            console.error('Failed to load app details:', error);
+            showToast('Failed to refresh application status', 'error');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    const loadAllApps = async () => {
+        try {
+            const apps = await fetchArgoCDApplications();
+            console.log('Fetched apps:', apps);
+            if (!apps || apps.length === 0) {
+                showToast('No ArgoCD applications found', 'error');
+            } else {
+                showToast(`Found ${apps.length} ArgoCD applications`, 'success');
+            }
+            setAllApps(apps || []);
+        } catch (error) {
+            console.error('Failed to load ArgoCD apps:', error);
+            showToast('Failed to load ArgoCD apps: ' + (error instanceof Error ? error.message : String(error)), 'error');
+        }
+    };
+
+    const handleAddEnvironment = async () => {
+        if (!newEnvName || !newAppName) return;
+        setAddLoading(true);
+        try {
+            await linkArgoCDApp(service.id, newAppName, newEnvName);
+            await loadLinkedApps();
+            setShowAddModal(false);
+            setNewEnvName('');
+            setNewAppName('');
+        } catch (error) {
+            console.error('Failed to link app:', error);
+            showToast('Failed to link ArgoCD application', 'error');
+        } finally {
+            setAddLoading(false);
+        }
+    };
+
+    // Request to remove environment (shows confirmation modal)
+    const requestRemoveEnvironment = (appId: string, envName: string) => {
+        setEnvToRemove({ appId, envName });
+        setShowRemoveEnvModal(true);
+    };
+
+    // Actually remove the environment after confirmation
+    const confirmRemoveEnvironment = async () => {
+        if (!envToRemove) return;
+        setShowRemoveEnvModal(false);
+        try {
+            await unlinkArgoCDApp(service.id, envToRemove.appId);
+            await loadLinkedApps();
+            if (selectedEnv === envToRemove.envName && linkedApps.length > 1) {
+                setSelectedEnv(linkedApps.find(a => a.environment_name !== envToRemove.envName)?.environment_name || '');
+            }
+            showToast('Environment removed successfully', 'success');
+        } catch (error) {
+            console.error('Failed to unlink app:', error);
+            showToast('Failed to remove environment', 'error');
+        } finally {
+            setEnvToRemove(null);
+        }
+    };
+
+    const handleSync = async () => {
+        const app = linkedApps.find(a => a.environment_name === selectedEnv);
+        if (!app) return;
+        setActionLoading('sync');
+        try {
+            await syncArgoCDApp(app.argocd_app_name);
+            showToast('Sync initiated successfully', 'success');
+            setTimeout(loadAppDetails, 2000);
+        } catch (error) {
+            console.error('Failed to sync:', error);
+            showToast('Failed to sync application', 'error');
+        } finally {
+            setActionLoading(null);
+        }
+    };
+
+    // Show toast notification
+    const showToast = (message: string, type: 'success' | 'error') => {
+        setToast({ message, type });
+        setTimeout(() => setToast(null), 3000);
+    };
+
+    // Request to delete pod (shows confirmation modal)
+    const requestDeletePod = (pod: ArgoCDPod) => {
+        setPodToDelete(pod);
+        setShowDeleteModal(true);
+    };
+
+    // Actually delete the pod after confirmation
+    const confirmDeletePod = async () => {
+        if (!podToDelete) return;
+        const app = linkedApps.find(a => a.environment_name === selectedEnv);
+        if (!app) return;
+
+        setShowDeleteModal(false);
+        setActionLoading(podToDelete.name);
+
+        try {
+            await deleteArgoCDPod(app.argocd_app_name, podToDelete.name, podToDelete.namespace);
+            showToast('Pod deleted. It will be recreated shortly.', 'success');
+            setTimeout(loadAppDetails, 2000);
+        } catch (error) {
+            console.error('Failed to delete pod:', error);
+            showToast('Failed to delete pod', 'error');
+        } finally {
+            setActionLoading(null);
+            setPodToDelete(null);
+        }
+    };
+
+    const getHealthColor = (health: string) => {
+        switch (health?.toLowerCase()) {
+            case 'healthy': return '#10b981';
+            case 'progressing': return '#3b82f6';
+            case 'degraded': return '#ef4444';
+            default: return '#6b7280';
+        }
+    };
+
+    const getSyncColor = (sync: string) => {
+        switch (sync?.toLowerCase()) {
+            case 'synced': return '#10b981';
+            case 'outofsync': return '#f59e0b';
+            default: return '#6b7280';
+        }
+    };
+
+    if (loading) {
+        return <div className={styles.tabContent}><p>Loading...</p></div>;
+    }
 
     return (
         <div className={styles.tabContent}>
-            <h2 className={styles.sectionTitle}>Deployment Status</h2>
-            {argocdUrl ? (
-                <div>
-                    <div style={{ marginBottom: '1rem', padding: '1rem', background: '#ecfdf5', borderRadius: '0.5rem', border: '1px solid #10b981' }}>
-                        <strong>ArgoCD Application:</strong> {service.argocd_app_name || service.name}
-                    </div>
-                    <iframe
-                        src={argocdUrl}
-                        title={`${service.name} Deployments`}
-                        style={{ width: '100%', height: '600px', border: '1px solid #e5e7eb', borderRadius: '0.5rem' }}
-                    />
-                </div>
-            ) : (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                <h2 className={styles.sectionTitle} style={{ margin: 0 }}>Deployment Status</h2>
+                {isAdmin && (
+                    <button
+                        onClick={() => { setShowAddModal(true); loadAllApps(); }}
+                        style={{
+                            padding: '0.5rem 1rem',
+                            background: '#3b82f6',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '0.375rem',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem',
+                        }}
+                    >
+                        <span>+</span> Add Environment
+                    </button>
+                )}
+            </div>
+
+            {linkedApps.length === 0 ? (
                 <div style={{ padding: '3rem', textAlign: 'center', background: '#f9fafb', borderRadius: '0.75rem', color: '#6b7280' }}>
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '3rem', height: '3rem', margin: '0 auto 1rem', opacity: 0.5 }}>
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
-                    <p>No ArgoCD integration configured for this service.</p>
-                    <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Configure an ArgoCD URL to view deployment status.</p>
+                    <p>No ArgoCD environments configured.</p>
+                    {isAdmin && <p style={{ fontSize: '0.875rem', marginTop: '0.5rem' }}>Click "+ Add Environment" to link an ArgoCD application.</p>}
+                </div>
+            ) : (
+                <>
+                    {/* Environment Tabs */}
+                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid #e5e7eb', paddingBottom: '0.5rem' }}>
+                        {linkedApps.map(app => (
+                            <div key={app.id} style={{ position: 'relative' }}>
+                                <button
+                                    onClick={() => setSelectedEnv(app.environment_name)}
+                                    style={{
+                                        padding: '0.5rem 1.5rem',
+                                        borderRadius: '0.375rem 0.375rem 0 0',
+                                        border: 'none',
+                                        background: selectedEnv === app.environment_name ? '#3b82f6' : '#f3f4f6',
+                                        color: selectedEnv === app.environment_name ? 'white' : '#374151',
+                                        fontWeight: 500,
+                                        cursor: 'pointer',
+                                    }}
+                                >
+                                    {app.environment_name}
+                                </button>
+                                {isAdmin && (
+                                    <button
+                                        onClick={() => requestRemoveEnvironment(app.id, app.environment_name)}
+                                        style={{
+                                            position: 'absolute',
+                                            top: '-0.25rem',
+                                            right: '-0.25rem',
+                                            width: '1rem',
+                                            height: '1rem',
+                                            borderRadius: '50%',
+                                            background: '#ef4444',
+                                            color: 'white',
+                                            border: 'none',
+                                            fontSize: '0.625rem',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                        }}
+                                    >
+                                        ×
+                                    </button>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Status Card */}
+                    {appStatus && (
+                        <div style={{
+                            display: 'flex',
+                            gap: '2rem',
+                            padding: '1rem 1.5rem',
+                            background: 'white',
+                            borderRadius: '0.75rem',
+                            border: '1px solid #e5e7eb',
+                            marginBottom: '1.5rem',
+                            alignItems: 'center',
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: getHealthColor(appStatus.health) }} />
+                                <span style={{ fontWeight: 500 }}>Health:</span>
+                                <span style={{ color: getHealthColor(appStatus.health) }}>{appStatus.health || 'Unknown'}</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '50%', background: getSyncColor(appStatus.sync_status) }} />
+                                <span style={{ fontWeight: 500 }}>Sync:</span>
+                                <span style={{ color: getSyncColor(appStatus.sync_status) }}>{appStatus.sync_status || 'Unknown'}</span>
+                            </div>
+                            {appStatus.revision && (
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '0.5rem',
+                                    background: '#f3f4f6', // Matches .cancelButton background
+                                    border: '1px solid #e5e7eb', // Matches .cancelButton border
+                                    padding: '0.25rem 0.75rem',
+                                    borderRadius: '0.5rem', // Matches .cancelButton radius
+                                    color: '#374151', // Matches .cancelButton color
+                                }}>
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '0.875rem', height: '0.875rem', color: '#6b7280' }}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                    </svg>
+                                    <span style={{ fontSize: '0.75rem', fontWeight: 500, color: '#6b7280' }}>Version:</span>
+                                    <code style={{
+                                        fontSize: '0.75rem',
+                                        fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+                                        fontWeight: 600,
+                                    }}>
+                                        {appStatus.revision}
+                                    </code>
+                                </div>
+                            )}
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+                                {isAdmin && (
+                                    <button
+                                        onClick={handleSync}
+                                        disabled={actionLoading === 'sync'}
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: '#10b981',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '0.375rem',
+                                            cursor: 'pointer',
+                                            opacity: actionLoading === 'sync' ? 0.6 : 1,
+                                            fontSize: '0.875rem',
+                                            fontWeight: 500,
+                                        }}
+                                    >
+                                        {actionLoading === 'sync' ? 'Syncing...' : '↻ Sync'}
+                                    </button>
+                                )}
+                                <button
+                                    onClick={loadAppDetails}
+                                    disabled={actionLoading === 'refresh'}
+                                    style={{
+                                        padding: '0.5rem 1rem',
+                                        background: '#f3f4f6',
+                                        color: '#374151',
+                                        border: '1px solid #e5e7eb',
+                                        borderRadius: '0.375rem',
+                                        cursor: 'pointer',
+                                        opacity: actionLoading === 'refresh' ? 0.6 : 1,
+                                        fontSize: '0.875rem',
+                                        fontWeight: 500,
+                                    }}
+                                >
+                                    {actionLoading === 'refresh' ? 'Refreshing...' : '↻ Refresh'}
+                                </button>
+                                {argocdBaseUrl && appStatus && (
+                                    <a
+                                        href={`${argocdBaseUrl}/applications/${appStatus.name}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                            padding: '0.5rem 1rem',
+                                            background: '#3b82f6',
+                                            color: 'white',
+                                            border: 'none',
+                                            borderRadius: '0.375rem',
+                                            cursor: 'pointer',
+                                            textDecoration: 'none',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.375rem',
+                                            fontSize: '0.875rem',
+                                            fontWeight: 500,
+                                        }}
+                                    >
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style={{ width: '1rem', height: '1rem' }}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                        View in ArgoCD
+                                    </a>
+                                )}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Pods Table */}
+                    <div style={{ background: 'white', borderRadius: '0.75rem', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                        <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid #e5e7eb', fontWeight: 600 }}>
+                            Pods ({pods.length})
+                        </div>
+                        {pods.length === 0 ? (
+                            <div style={{ padding: '2rem', textAlign: 'center', color: '#6b7280' }}>No pods found</div>
+                        ) : (
+                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ background: '#f9fafb' }}>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Name</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Status</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Ready</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Restarts</th>
+                                        <th style={{ padding: '0.75rem 1rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Age</th>
+                                        {isAdmin && <th style={{ padding: '0.75rem 1rem', textAlign: 'right', fontSize: '0.75rem', fontWeight: 600, color: '#6b7280', textTransform: 'uppercase' }}>Actions</th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pods.map(pod => (
+                                        <tr key={pod.name} style={{ borderTop: '1px solid #e5e7eb' }}>
+                                            <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', fontSize: '0.875rem' }}>{pod.name}</td>
+                                            <td style={{ padding: '0.75rem 1rem' }}>
+                                                <span style={{
+                                                    padding: '0.25rem 0.5rem',
+                                                    borderRadius: '9999px',
+                                                    fontSize: '0.75rem',
+                                                    fontWeight: 500,
+                                                    background: pod.status?.toLowerCase() === 'running' || pod.status?.toLowerCase() === 'healthy' ? '#dcfce7' : pod.status?.toLowerCase() === 'progressing' ? '#dbeafe' : '#fef2f2',
+                                                    color: pod.status?.toLowerCase() === 'running' || pod.status?.toLowerCase() === 'healthy' ? '#166534' : pod.status?.toLowerCase() === 'progressing' ? '#1e40af' : '#991b1b',
+                                                }}>
+                                                    {pod.status}
+                                                </span>
+                                            </td>
+                                            <td style={{ padding: '0.75rem 1rem', color: '#6b7280' }}>{pod.ready}</td>
+                                            <td style={{ padding: '0.75rem 1rem', color: '#6b7280' }}>{pod.restarts}</td>
+                                            <td style={{ padding: '0.75rem 1rem', color: '#6b7280' }}>{pod.age}</td>
+                                            {isAdmin && (
+                                                <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
+                                                    <button
+                                                        onClick={() => requestDeletePod(pod)}
+                                                        disabled={actionLoading === pod.name}
+                                                        style={{
+                                                            padding: '0.25rem 0.5rem',
+                                                            background: '#fee2e2',
+                                                            color: '#dc2626',
+                                                            border: 'none',
+                                                            borderRadius: '0.25rem',
+                                                            fontSize: '0.75rem',
+                                                            cursor: 'pointer',
+                                                            opacity: actionLoading === pod.name ? 0.6 : 1,
+                                                        }}
+                                                    >
+                                                        {actionLoading === pod.name ? '...' : 'Delete'}
+                                                    </button>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        )}
+                    </div>
+                </>
+            )}
+
+            {/* Add Environment Modal */}
+            {showAddModal && (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'rgba(0, 0, 0, 0.5)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 50,
+                }}>
+                    <div style={{
+                        background: 'white',
+                        borderRadius: '0.75rem',
+                        padding: '1.5rem',
+                        width: '100%',
+                        maxWidth: '28rem',
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+                            <h3 style={{ margin: 0, fontSize: '1.125rem', fontWeight: 600 }}>Link ArgoCD Application</h3>
+                            <button onClick={() => setShowAddModal(false)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
+                        </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>Environment Name *</label>
+                            <input
+                                type="text"
+                                value={newEnvName}
+                                onChange={(e) => setNewEnvName(e.target.value)}
+                                placeholder="e.g., Production, Staging, Dev"
+                                style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid #e5e7eb' }}
+                            />
+                        </div>
+                        <div style={{ marginBottom: '1.5rem' }}>
+                            <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 500, marginBottom: '0.5rem' }}>ArgoCD Application *</label>
+                            <CustomDropdown
+                                value={newAppName}
+                                onChange={(value) => setNewAppName(value)}
+                                options={[
+                                    { value: '', label: 'Select an application...' },
+                                    ...allApps.map(app => ({
+                                        value: app.name,
+                                        label: `${app.name} (${app.health})`
+                                    }))
+                                ]}
+                                placeholder="Select an application..."
+                            />
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                            <button
+                                onClick={() => setShowAddModal(false)}
+                                style={{ padding: '0.5rem 1rem', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '0.375rem', cursor: 'pointer' }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleAddEnvironment}
+                                disabled={addLoading || !newEnvName || !newAppName}
+                                style={{
+                                    padding: '0.5rem 1rem',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '0.375rem',
+                                    cursor: 'pointer',
+                                    opacity: addLoading || !newEnvName || !newAppName ? 0.6 : 1,
+                                }}
+                            >
+                                {addLoading ? 'Linking...' : 'Link Application'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Pod Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showDeleteModal}
+                title="Delete Pod"
+                message="Are you sure you want to delete this pod?"
+                resourceName={podToDelete?.name}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={confirmDeletePod}
+                onCancel={() => {
+                    setShowDeleteModal(false);
+                    setPodToDelete(null);
+                }}
+                loading={!!actionLoading}
+            />
+
+            {/* Remove Environment Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showRemoveEnvModal}
+                title="Remove Environment"
+                message="Are you sure you want to remove this environment?"
+                resourceName={envToRemove?.envName}
+                confirmLabel="Remove"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={confirmRemoveEnvironment}
+                onCancel={() => {
+                    setShowRemoveEnvModal(false);
+                    setEnvToRemove(null);
+                }}
+            />
+
+            {/* Toast Notification */}
+            {toast && (
+                <div style={{
+                    position: 'fixed',
+                    bottom: '1.5rem',
+                    right: '1.5rem',
+                    padding: '0.75rem 1.25rem',
+                    borderRadius: '0.5rem',
+                    background: toast.type === 'success' ? '#10b981' : '#ef4444',
+                    color: 'white',
+                    fontWeight: 500,
+                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+                    zIndex: 100,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.5rem',
+                }}>
+                    {toast.type === 'success' ? '✓' : '✗'} {toast.message}
                 </div>
             )}
         </div>
     );
 }
+
 
 // Monitoring Tab Component
 function MonitoringTab({ service }: { service: Service }) {

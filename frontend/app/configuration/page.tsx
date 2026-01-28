@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
+import CustomDropdown from '@/components/ui/CustomDropdown';
+import { useToast } from '@/components/ui/Toast';
 import { fetchCurrentUser, fetchUsers, fetchTeams, fetchSecrets } from '@/lib/api';
 import GitHubConfig from '@/components/configuration/GitHubConfig';
 import styles from './page.module.css';
@@ -11,6 +13,7 @@ type Tab = 'credentials' | 'permissions' | 'access' | 'github';
 
 export default function ConfigurationPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [currentUser, setCurrentUser] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<Tab>('credentials');
@@ -29,7 +32,7 @@ export default function ConfigurationPage() {
 
             // Check if user is superadmin
             if (data.user?.role !== 'superadmin') {
-                alert('Access denied. Only superadmins can access this page.');
+                showToast('Access denied. Only superadmins can access this page.', 'error');
                 router.push('/');
                 return;
             }
@@ -162,6 +165,7 @@ export default function ConfigurationPage() {
 
 // AWS Credentials Tab
 function CredentialsTab({ credentials, onRefresh }: { credentials: any[], onRefresh: () => void }) {
+    const { showToast } = useToast();
     const [showModal, setShowModal] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
@@ -250,8 +254,9 @@ function CredentialsTab({ credentials, onRefresh }: { credentials: any[], onRefr
 
             setDeleteConfirm(null);
             onRefresh();
+            showToast('Credential deleted successfully', 'success');
         } catch (err: any) {
-            alert(err.message || 'Failed to delete credential');
+            showToast(err.message || 'Failed to delete credential', 'error');
         }
     };
 
@@ -386,29 +391,29 @@ function CredentialsTab({ credentials, onRefresh }: { credentials: any[], onRefr
                                     {/* Default Region */}
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Default Region</label>
-                                        <select
+                                        <CustomDropdown
                                             value={region}
-                                            onChange={(e) => setRegion(e.target.value)}
-                                            style={{ width: '100%', padding: '0.625rem 0.875rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.938rem', boxSizing: 'border-box', cursor: 'pointer' }}
-                                        >
-                                            {AWS_REGIONS.map(r => (
-                                                <option key={r.id} value={r.id}>{r.name}</option>
-                                            ))}
-                                        </select>
+                                            onChange={(value) => setRegion(value)}
+                                            options={AWS_REGIONS.map(r => ({
+                                                value: r.id,
+                                                label: r.name
+                                            }))}
+                                            placeholder="Select region..."
+                                        />
                                     </div>
 
                                     {/* Access Type */}
                                     <div>
                                         <label style={{ display: 'block', fontSize: '0.875rem', fontWeight: 600, color: '#374151', marginBottom: '0.5rem' }}>Access Type *</label>
-                                        <select
+                                        <CustomDropdown
                                             value={accessType}
-                                            onChange={(e) => setAccessType(e.target.value as 'read' | 'write')}
-                                            required
-                                            style={{ width: '100%', padding: '0.625rem 0.875rem', border: '1px solid #d1d5db', borderRadius: '0.5rem', fontSize: '0.938rem', boxSizing: 'border-box', cursor: 'pointer' }}
-                                        >
-                                            <option value="write">Write (Provision + Discover)</option>
-                                            <option value="read">Read-Only (Discover Only)</option>
-                                        </select>
+                                            onChange={(value) => setAccessType(value as 'read' | 'write')}
+                                            options={[
+                                                { value: 'write', label: 'Write (Provision + Discover)' },
+                                                { value: 'read', label: 'Read-Only (Discover Only)' },
+                                            ]}
+                                            placeholder="Select access type..."
+                                        />
                                     </div>
 
                                     {/* Access Key ID */}
@@ -472,6 +477,7 @@ function CredentialsTab({ credentials, onRefresh }: { credentials: any[], onRefr
 
 // User Permissions Tab
 function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[], onRefresh: () => void }) {
+    const { showToast } = useToast();
     const [updating, setUpdating] = useState<string | null>(null);
     const [editingTeams, setEditingTeams] = useState<string | null>(null);
     const [selectedTeams, setSelectedTeams] = useState<string[]>([]);
@@ -509,11 +515,11 @@ function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[
                 throw new Error(`Failed to update user role: ${response.status} ${JSON.stringify(responseData)}`);
             }
 
-            alert(`✅ Successfully updated ${user.name}'s role to ${newRole}`);
+            showToast(`Successfully updated ${user.name}'s role to ${newRole}`, 'success');
             await onRefresh();
         } catch (error) {
             console.error('Failed to update role:', error);
-            alert(`❌ Failed to update user role. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+            showToast(`Failed to update user role. Error: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
         } finally {
             setUpdating(null);
         }
@@ -562,12 +568,12 @@ function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[
 
             if (!response.ok) throw new Error('Failed to update user teams');
 
-            alert(`✅ Successfully updated ${user.name}'s team assignments`);
+            showToast(`Successfully updated ${user.name}'s team assignments`, 'success');
             await onRefresh();
             setEditingTeams(null);
         } catch (error) {
             console.error('Failed to update teams:', error);
-            alert('❌ Failed to update team assignments. Please try again.');
+            showToast('Failed to update team assignments. Please try again.', 'error');
         } finally {
             setUpdating(null);
         }
@@ -608,17 +614,16 @@ function PermissionsTab({ users, teams, onRefresh }: { users: any[], teams: any[
                                 </td>
                                 <td>{user.email}</td>
                                 <td>
-                                    <select
+                                    <CustomDropdown
                                         value={user.role}
-                                        className={styles.roleSelect}
-                                        onChange={(e) => handleRoleChange(user.id, e.target.value)}
+                                        onChange={(value) => handleRoleChange(user.id, value)}
+                                        options={[
+                                            { value: 'superadmin', label: '🔑 Superadmin' },
+                                            { value: 'lead', label: '👔 Lead' },
+                                            { value: 'dev', label: '👨‍💻 Developer' },
+                                        ]}
                                         disabled={updating === user.id}
-                                        style={{ opacity: updating === user.id ? 0.5 : 1 }}
-                                    >
-                                        <option value="superadmin">🔑 Superadmin</option>
-                                        <option value="lead">👔 Lead</option>
-                                        <option value="dev">👨‍💻 Developer</option>
-                                    </select>
+                                    />
                                 </td>
                                 <td>
                                     <div className={styles.teamBadges}>

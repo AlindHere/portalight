@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import styles from './ConfirmationModal.module.css';
-import { ServiceResourceMapping } from '@/lib/types';
-import { DiscoveredResourceDB } from '@/lib/api';
+import { ServiceResourceMapping, DiscoveredResourceDB } from '@/lib/types';
 
 interface MapResourceModalProps {
     isOpen: boolean;

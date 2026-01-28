@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
+import CustomDropdown from '@/components/ui/CustomDropdown';
 import { fetchAWSCredentials, createAWSCredential, deleteAWSCredential, fetchCurrentUser } from '@/lib/api';
 import { Secret, User } from '@/lib/types';
 import styles from './page.module.css';
@@ -200,15 +201,15 @@ export default function CredentialsPage() {
 
                                 <div className={styles.formGroup}>
                                     <label className={styles.label}>Default Region</label>
-                                    <select
-                                        className={styles.select}
+                                    <CustomDropdown
                                         value={region}
-                                        onChange={(e) => setRegion(e.target.value)}
-                                    >
-                                        {AWS_REGIONS.map(r => (
-                                            <option key={r.id} value={r.id}>{r.name}</option>
-                                        ))}
-                                    </select>
+                                        onChange={(value) => setRegion(value)}
+                                        options={AWS_REGIONS.map(r => ({
+                                            value: r.id,
+                                            label: r.name
+                                        }))}
+                                        placeholder="Select region..."
+                                    />
                                 </div>
 
                                 <div className={styles.formGroup}>

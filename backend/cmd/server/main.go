@@ -243,6 +243,44 @@ func main() {
 	// Audit log endpoints
 	mux.HandleFunc("/api/v1/audit-logs", handlers.GetAuditLogs)
 
+	// ArgoCD integration endpoints
+	argocdHandler := handlers.NewArgoCDHandler()
+	mux.HandleFunc("/api/v1/argocd/config", argocdHandler.GetConfig)
+	mux.HandleFunc("/api/v1/argocd/applications", argocdHandler.ListApplications)
+	mux.HandleFunc("/api/v1/argocd/service/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			argocdHandler.GetServiceApps(w, r)
+		case http.MethodPost:
+			argocdHandler.LinkApp(w, r)
+		case http.MethodDelete:
+			argocdHandler.UnlinkApp(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	})
+	mux.HandleFunc("/api/v1/argocd/apps/", func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		switch {
+		case strings.HasSuffix(path, "/status"):
+			argocdHandler.GetAppStatus(w, r)
+		case strings.HasSuffix(path, "/pods"):
+			argocdHandler.GetAppPods(w, r)
+		case strings.HasSuffix(path, "/logs"):
+			argocdHandler.GetPodLogs(w, r)
+		case strings.HasSuffix(path, "/sync"):
+			if r.Method == http.MethodPost {
+				argocdHandler.SyncApp(w, r)
+			} else {
+				http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			}
+		case strings.Contains(path, "/pods/") && r.Method == http.MethodDelete:
+			argocdHandler.DeletePod(w, r)
+		default:
+			http.Error(w, "Not found", http.StatusNotFound)
+		}
+	})
+
 	// Health check
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)

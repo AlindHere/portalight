@@ -600,3 +600,138 @@ export async function syncCatalog(mappings: Array<{ file: string, team_id: strin
     console.log('[API] Success response:', result);
     return result;
 }
+
+// ==================== ArgoCD API Functions ====================
+
+export interface ArgoCDApplication {
+    name: string;
+    namespace: string;
+    project: string;
+    health: string;
+    sync_status: string;
+    revision?: string;
+    created_at?: string;
+}
+
+export interface ArgoCDPod {
+    name: string;
+    namespace: string;
+    status: string;
+    ready: string;
+    restarts: number;
+    age: string;
+    containers: string[];
+}
+
+export interface ServiceArgoCDApp {
+    id: string;
+    service_id: string;
+    argocd_app_name: string;
+    environment_name: string;
+    created_at: string;
+    updated_at: string;
+}
+
+// Get ArgoCD configuration (base URL for external links)
+export async function fetchArgoCDConfig(): Promise<{ configured: boolean; base_url: string }> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/config`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch ArgoCD config');
+}
+
+// List all ArgoCD applications from ArgoCD server
+export async function fetchArgoCDApplications(): Promise<ArgoCDApplication[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/applications`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch ArgoCD applications');
+}
+
+// Get ArgoCD apps linked to a service
+export async function fetchServiceArgoCDApps(serviceId: string): Promise<ServiceArgoCDApp[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/service/${serviceId}/apps`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch service ArgoCD apps');
+}
+
+// Link an ArgoCD app to a service with an environment name
+export async function linkArgoCDApp(serviceId: string, appName: string, environmentName: string): Promise<ServiceArgoCDApp> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/service/${serviceId}/apps`, {
+        method: 'POST',
+        headers: getHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+            argocd_app_name: appName,
+            environment_name: environmentName,
+        }),
+    });
+    if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error || 'Failed to link ArgoCD app');
+    }
+    return response.json();
+}
+
+// Unlink an ArgoCD app from a service
+export async function unlinkArgoCDApp(serviceId: string, appId: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/service/${serviceId}/apps/${appId}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to unlink ArgoCD app');
+    }
+}
+
+// Get ArgoCD application status
+export async function fetchArgoCDAppStatus(appName: string): Promise<ArgoCDApplication> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/apps/${appName}/status`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch app status');
+}
+
+// Get pods for an ArgoCD application
+export async function fetchArgoCDAppPods(appName: string): Promise<ArgoCDPod[]> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/apps/${appName}/pods`, {
+        headers: getHeaders(),
+    });
+    return handleResponse(response, 'Failed to fetch pods');
+}
+
+// Get logs for a pod
+export async function fetchArgoCDPodLogs(appName: string, podName: string, namespace: string, container?: string): Promise<string> {
+    const params = new URLSearchParams({ namespace });
+    if (container) params.append('container', container);
+
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/apps/${appName}/pods/${podName}/logs?${params}`, {
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch logs');
+    }
+    return response.text();
+}
+
+// Delete a pod
+export async function deleteArgoCDPod(appName: string, podName: string, namespace: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/apps/${appName}/pods/${podName}?namespace=${namespace}`, {
+        method: 'DELETE',
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to delete pod');
+    }
+}
+
+// Trigger a sync for an ArgoCD application
+export async function syncArgoCDApp(appName: string): Promise<void> {
+    const response = await fetch(`${API_BASE_URL}/api/v1/argocd/apps/${appName}/sync`, {
+        method: 'POST',
+        headers: getHeaders(),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to sync application');
+    }
+}

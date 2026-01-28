@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import DevPermissionsModal from '@/components/DevPermissionsModal';
+import ConfirmationModal from '@/components/ConfirmationModal';
+import CustomDropdown from '@/components/ui/CustomDropdown';
+import { useToast } from '@/components/ui/Toast';
 import { fetchUsers, fetchTeams, fetchCurrentUser, updateUser, updateTeamMembers, createTeam, fetchProjects, deleteTeam } from '@/lib/api';
 import { User, Team, CurrentUserResponse, Project } from '@/lib/types';
 import styles from './page.module.css';
 
 export default function UsersTeamsPage() {
     const router = useRouter();
+    const { showToast } = useToast();
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [users, setUsers] = useState<User[]>([]);
     const [teams, setTeams] = useState<Team[]>([]);
@@ -20,6 +24,10 @@ export default function UsersTeamsPage() {
     const [selectedTeam, setSelectedTeam] = useState<string>('all');
     const [creatingTeam, setCreatingTeam] = useState(false);
     const [viewingTeam, setViewingTeam] = useState<string | null>(null);
+
+    // Delete team confirmation modal state
+    const [showDeleteTeamModal, setShowDeleteTeamModal] = useState(false);
+    const [teamToDelete, setTeamToDelete] = useState<string | null>(null);
 
     useEffect(() => {
         loadData();
@@ -46,22 +54,23 @@ export default function UsersTeamsPage() {
 
     const handleRoleChange = async (user: User, newRole: 'superadmin' | 'lead' | 'dev') => {
         if (!currentUser?.role || currentUser.role !== 'superadmin') {
-            alert('Only superadmins can change roles');
+            showToast('Only superadmins can change roles', 'error');
             return;
         }
 
         try {
             const updated = await updateUser({ ...user, role: newRole });
             setUsers(users.map(u => u.id === updated.id ? updated : u));
+            showToast(`Updated ${user.name}'s role to ${newRole}`, 'success');
         } catch (error) {
             console.error('Failed to update role:', error);
-            alert('Failed to update role');
+            showToast('Failed to update role', 'error');
         }
     };
 
     const handleTeamToggle = async (user: User, teamId: string) => {
         if (!currentUser?.role || currentUser.role !== 'superadmin') {
-            alert('Only superadmins can modify team assignments');
+            showToast('Only superadmins can modify team assignments', 'error');
             return;
         }
 
@@ -74,27 +83,36 @@ export default function UsersTeamsPage() {
             setUsers(users.map(u => u.id === updated.id ? updated : u));
         } catch (error) {
             console.error('Failed to update teams:', error);
-            alert('Failed to update teams');
+            showToast('Failed to update teams', 'error');
         }
     };
 
-    const handleDeleteTeam = async (teamId: string, e: React.MouseEvent) => {
+    // Request to delete team (shows confirmation modal)
+    const requestDeleteTeam = (teamId: string, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
-            return;
-        }
+        setTeamToDelete(teamId);
+        setShowDeleteTeamModal(true);
+    };
+
+    // Actually delete the team after confirmation
+    const confirmDeleteTeam = async () => {
+        if (!teamToDelete) return;
+        setShowDeleteTeamModal(false);
 
         try {
-            await deleteTeam(teamId);
-            setTeams(teams.filter(t => t.id !== teamId));
+            await deleteTeam(teamToDelete);
+            setTeams(teams.filter(t => t.id !== teamToDelete));
             // Update users to remove team from their list locally
             setUsers(users.map(u => ({
                 ...u,
-                team_ids: u.team_ids.filter(id => id !== teamId)
+                team_ids: u.team_ids.filter(id => id !== teamToDelete)
             })));
+            showToast('Team deleted successfully', 'success');
         } catch (error) {
             console.error('Failed to delete team:', error);
-            alert('Failed to delete team');
+            showToast('Failed to delete team', 'error');
+        } finally {
+            setTeamToDelete(null);
         }
     };
 
@@ -137,19 +155,19 @@ export default function UsersTeamsPage() {
                     <div className={styles.filterBar}>
                         <div className={styles.filterGroup}>
                             <label>Filter by Team:</label>
-                            <select
+                            <CustomDropdown
                                 value={selectedTeam}
-                                onChange={(e) => setSelectedTeam(e.target.value)}
-                                className={styles.select}
-                            >
-                                <option value="all">All Users ({users.length})</option>
-                                <option value="unassigned">Unassigned ({users.filter(u => u.team_ids.length === 0).length})</option>
-                                {teams.map((team) => (
-                                    <option key={team.id} value={team.id}>
-                                        {team.name} ({users.filter(u => u.team_ids.includes(team.id)).length})
-                                    </option>
-                                ))}
-                            </select>
+                                onChange={(value) => setSelectedTeam(value)}
+                                options={[
+                                    { value: 'all', label: `All Users (${users.length})` },
+                                    { value: 'unassigned', label: `Unassigned (${users.filter(u => u.team_ids.length === 0).length})` },
+                                    ...teams.map((team) => ({
+                                        value: team.id,
+                                        label: `${team.name} (${users.filter(u => u.team_ids.includes(team.id)).length})`
+                                    }))
+                                ]}
+                                placeholder="Select team..."
+                            />
                         </div>
 
                         <div className={styles.stats}>
@@ -288,7 +306,7 @@ export default function UsersTeamsPage() {
                                             </div>
                                             {currentUser?.role === 'superadmin' && (
                                                 <button
-                                                    onClick={(e) => handleDeleteTeam(team.id, e)}
+                                                    onClick={(e) => requestDeleteTeam(team.id, e)}
                                                     className={styles.deleteTeamButton}
                                                     title="Delete Team"
                                                 >
@@ -344,10 +362,10 @@ export default function UsersTeamsPage() {
                             }
                             await loadData();
                             setCreatingTeam(false);
-                            alert('✅ Team created successfully!');
+                            showToast('Team created successfully!', 'success');
                         } catch (error) {
                             console.error('Failed to create team:', error);
-                            alert(`❌ Failed to create team: ${error instanceof Error ? error.message : 'Unknown error'}`);
+                            showToast(`Failed to create team: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
                         }
                     }}
                     onClose={() => setCreatingTeam(false)}
@@ -380,9 +398,10 @@ export default function UsersTeamsPage() {
                                 team_ids: u.team_ids.filter(id => id !== teamId)
                             })));
                             setViewingTeam(null);
+                            showToast('Team deleted successfully', 'success');
                         } catch (error) {
                             console.error('Failed to delete team:', error);
-                            alert('Failed to delete team');
+                            showToast('Failed to delete team', 'error');
                         }
                     }}
                 />
@@ -398,9 +417,10 @@ export default function UsersTeamsPage() {
                             const updated = await updateUser({ ...editingUser, team_ids: teamIds });
                             setUsers(users.map(u => u.id === updated.id ? updated : u));
                             setEditingUser(null);
+                            showToast('Teams updated successfully', 'success');
                         } catch (error) {
                             console.error('Failed to update teams:', error);
-                            alert('Failed to update teams');
+                            showToast('Failed to update teams', 'error');
                         }
                     }}
                     onClose={() => setEditingUser(null)}
@@ -418,6 +438,22 @@ export default function UsersTeamsPage() {
                     }}
                 />
             )}
+
+            {/* Delete Team Confirmation Modal */}
+            <ConfirmationModal
+                isOpen={showDeleteTeamModal}
+                title="Delete Team"
+                message="Are you sure you want to delete this team? This action cannot be undone."
+                resourceName={teams.find(t => t.id === teamToDelete)?.name}
+                confirmLabel="Delete"
+                cancelLabel="Cancel"
+                variant="danger"
+                onConfirm={confirmDeleteTeam}
+                onCancel={() => {
+                    setShowDeleteTeamModal(false);
+                    setTeamToDelete(null);
+                }}
+            />
         </>
     );
 }
@@ -505,6 +541,7 @@ function CreateTeamModal({
     onSave: (teamData: Partial<Team>, memberIds: string[]) => void;
     onClose: () => void;
 }) {
+    const { showToast } = useToast();
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -519,7 +556,7 @@ function CreateTeamModal({
 
     const handleSubmit = () => {
         if (!name.trim()) {
-            alert('Team name is required');
+            showToast('Team name is required', 'error');
             return;
         }
         onSave({ name, description }, selectedMembers);
@@ -630,6 +667,7 @@ function TeamDetailModal({
     onDelete: (teamId: string) => Promise<void>;
 }) {
     const router = useRouter();
+    const { showToast } = useToast();
     const [isEditing, setIsEditing] = useState(false);
     const [selectedMembers, setSelectedMembers] = useState<string[]>(members.map(m => m.id));
     const [isSaving, setIsSaving] = useState(false);
@@ -651,10 +689,10 @@ function TeamDetailModal({
         try {
             await onMembersUpdate(team.id, selectedMembers);
             setIsEditing(false);
-            alert('✅ Team members updated successfully!');
+            showToast('Team members updated successfully!', 'success');
         } catch (error) {
             console.error('Failed to update members:', error);
-            alert('❌ Failed to update team members. Please try again.');
+            showToast('Failed to update team members. Please try again.', 'error');
         } finally {
             setIsSaving(false);
         }

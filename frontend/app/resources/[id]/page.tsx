@@ -23,6 +23,8 @@ interface Metric {
     datapoints: Array<{ timestamp: string; value: number }>;
 }
 
+type MetricsData = Record<string, Array<{ timestamp: string; value: number }>>;
+
 export default function ResourceDetailPage() {
     const params = useParams();
     const router = useRouter();
@@ -32,7 +34,7 @@ export default function ResourceDetailPage() {
     const [project, setProject] = useState<Project | null>(null);
     const [currentUser, setCurrentUser] = useState<User | null>(null);
     const [loading, setLoading] = useState(true);
-    const [metrics, setMetrics] = useState<Metric[] | null>(null);
+    const [metrics, setMetrics] = useState<MetricsData | null>(null);
     const [loadingMetrics, setLoadingMetrics] = useState(false);
     const [selectedPeriod, setSelectedPeriod] = useState('24h');
     const [credentials, setCredentials] = useState<AWSCredential[]>([]);
@@ -80,17 +82,17 @@ export default function ResourceDetailPage() {
     const loadMetrics = async (res: DiscoveredResourceDB, secretId: string, period: string) => {
         setLoadingMetrics(true);
         try {
-            const data = await fetchResourceMetrics({
-                secret_id: secretId,
-                resource_type: res.resource_type,
-                resource_name: res.name,
-                region: res.region,
-                period: period,
-            });
-            setMetrics(data?.metrics || []);
+            const data = await fetchResourceMetrics(
+                secretId,
+                res.resource_type,
+                res.name,
+                res.region,
+                period
+            );
+            setMetrics(data?.metrics || null);
         } catch (error) {
             console.error('Failed to load metrics:', error);
-            setMetrics([]);
+            setMetrics(null);
         } finally {
             setLoadingMetrics(false);
         }
@@ -222,18 +224,18 @@ export default function ResourceDetailPage() {
 
                         {loadingMetrics ? (
                             <div className={styles.metricsLoading}>Loading metrics...</div>
-                        ) : metrics && metrics.length > 0 ? (
+                        ) : metrics && Object.keys(metrics).length > 0 ? (
                             <div className={styles.metricsGrid}>
-                                {metrics.map((metric, index) => (
+                                {Object.entries(metrics).map(([metricName, datapoints], index) => (
                                     <div key={index} className={styles.metricCard}>
-                                        <h4>{metric.name}</h4>
+                                        <h4>{metricName}</h4>
                                         <div className={styles.metricValue}>
-                                            {metric.datapoints.length > 0
-                                                ? `${metric.datapoints[metric.datapoints.length - 1].value.toFixed(2)} ${metric.unit}`
+                                            {datapoints.length > 0
+                                                ? `${datapoints[datapoints.length - 1].value.toFixed(2)}`
                                                 : 'No data'}
                                         </div>
                                         <div className={styles.metricDatapoints}>
-                                            {metric.datapoints.length} data points
+                                            {datapoints.length} data points
                                         </div>
                                     </div>
                                 ))}

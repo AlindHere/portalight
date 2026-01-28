@@ -3,6 +3,7 @@ import { Project } from '@/lib/types';
 import { fetchAWSCredentials } from '@/lib/api';
 import styles from './ProjectEditModal.module.css';
 import CustomDropdown from './ui/CustomDropdown';
+import { useToast } from './ui/Toast';
 
 interface Secret {
     id: string;
@@ -22,6 +23,7 @@ export default function ProjectEditModal({
     onClose,
     onSave
 }: ProjectEditModalProps) {
+    const { showToast } = useToast();
     const [name, setName] = useState(project.name);
     const [description, setDescription] = useState(project.description);
     const [confluenceUrl, setConfluenceUrl] = useState(project.confluence_url || '');
@@ -68,7 +70,7 @@ export default function ProjectEditModal({
             onClose();
         } catch (error) {
             console.error('Failed to save project:', error);
-            alert('Failed to save project changes');
+            showToast('Failed to save project changes', 'error');
         } finally {
             setIsSaving(false);
         }

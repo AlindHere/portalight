@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { fetchGitHubConfig, fetchCatalogScan, syncCatalog, fetchTeams } from '@/lib/api';
 import { Team } from '@/lib/types';
+import CustomDropdown from '@/components/ui/CustomDropdown';
 import styles from './RegisterModal.module.css';
 
 interface RegisterModalProps {
@@ -201,18 +202,18 @@ export default function RegisterModal({ onClose, onRegister }: RegisterModalProp
                                                 />
                                                 <span className={styles.fileName}>{file}</span>
                                                 {isSelected && (
-                                                    <select
+                                                    <CustomDropdown
                                                         value={fileTeamMappings[file] || ''}
-                                                        onChange={(e) => handleTeamChange(file, e.target.value)}
-                                                        className={styles.teamSelect}
-                                                    >
-                                                        <option value="">-- Select Team --</option>
-                                                        {teams.map(team => (
-                                                            <option key={team.id} value={team.id}>
-                                                                {team.name}
-                                                            </option>
-                                                        ))}
-                                                    </select>
+                                                        onChange={(value) => handleTeamChange(file, value)}
+                                                        options={[
+                                                            { value: '', label: '-- Select Team --' },
+                                                            ...teams.map(team => ({
+                                                                value: team.id,
+                                                                label: team.name
+                                                            }))
+                                                        ]}
+                                                        placeholder="Select team..."
+                                                    />
                                                 )}
                                             </div>
                                         );
